@@ -1,0 +1,101 @@
+﻿@page "/sites/create"
+@using CoreBuilder.Entities
+@using CoreBuilder.Data
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavManager
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fa-solid fa-plus-circle me-2"></i>Yeni Site Oluştur</h5>
+            </div>
+            <div class="card-body">
+                <EditForm Model="@newTenant" OnValidSubmit="HandleValidSubmit">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Site Adı</label>
+                        <InputText class="form-control" @bind-Value="newTenant.SiteName" placeholder="Örn: Bartın Sınav Kurs" />
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Domain (Alan Adı)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">https://</span>
+                                <InputText class="form-control" @bind-Value="newTenant.Domain" placeholder="sinav.localhost" />
+                            </div>
+                            <small class="text-muted">Test için '.localhost' ile biten bir isim seçin.</small>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Kategori / Şablon</label>
+                            <InputSelect class="form-select" @bind-Value="newTenant.Category">
+                                <option value="">Bir kategori seçin...</option>
+                                <option value="Egitim">Eğitim Kurumu</option>
+                                <option value="Kurumsal">Kurumsal Firma</option>
+                                <option value="Eticaret">E-Ticaret</option>
+                                <option value="Blog">Blog / Haber</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <button type="button" class="btn btn-secondary" @onclick="GoBack">İptal</button>
+                        <button type="submit" class="btn btn-success"><i class="fa-solid fa-save me-1"></i> Kaydet ve Oluştur</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Form için boş bir model oluşturuyoruz
+    private Tenant newTenant = new Tenant();
+
+    private async Task HandleValidSubmit()
+    {
+        // 1. Siteyi (Tenant) Kaydet
+        newTenant.IsActive = true;
+        DbContext.Tenants.Add(newTenant);
+
+        // Önce Tenant'ı kaydediyoruz ki bir ID'si olsun (SQL Identity)
+        await DbContext.SaveChangesAsync();
+
+        // 2. Varsayılan TEMA Ayarlarını Oluştur (İlişkili Kayıt)
+        var defaultTheme = new ThemeSettings
+        {
+            TenantId = newTenant.Id, // Oluşan yeni ID'yi buraya bağlıyoruz
+            PrimaryColor = "#0d6efd", // Varsayılan Mavi
+            SecondaryColor = "#6c757d",
+            HeaderBgColor = "#ffffff",
+            FontFamily = "Inter",
+            MenuType = "Yatay",
+            BaseFontSize = 14
+        };
+        DbContext.ThemeSettings.Add(defaultTheme);
+
+        // 3. Boş İLETİŞİM Kaydı Oluştur
+        var defaultContact = new ContactInfo
+        {
+            TenantId = newTenant.Id,
+            Email = "info@" + newTenant.Domain, // Otomatik e-posta taslağı
+            Phone1 = "+90 555 000 00 00"
+        };
+        DbContext.ContactInfos.Add(defaultContact);
+
+        // Hepsini veritabanına işle
+        await DbContext.SaveChangesAsync();
+
+        // Listeye geri dön
+        NavManager.NavigateTo("/sites");
+    }
+
+    private void GoBack()
+    {
+        NavManager.NavigateTo("/sites");
+    }
+}

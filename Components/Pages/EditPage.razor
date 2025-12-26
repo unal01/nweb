@@ -1,0 +1,128 @@
+﻿@page "/pages/edit/{Id:int}"
+@using CoreBuilder.Entities
+@using CoreBuilder.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavManager
+
+<div class="row justify-content-center">
+    <div class="col-md-9">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-primary">
+                        <i class="fa-solid fa-pen-to-square me-2"></i> Sayfayı Düzenle
+                    </h5>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="GoBack">
+                        <i class="fa-solid fa-arrow-left me-1"></i> Listeye Dön
+                    </button>
+                </div>
+            </div>
+
+            <div class="card-body p-4">
+                @if (pageModel == null)
+                {
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2 text-muted">Sayfa bilgileri yükleniyor...</p>
+                    </div>
+                }
+                else
+                {
+                    <EditForm Model="@pageModel" OnValidSubmit="HandleSubmit">
+                        <DataAnnotationsValidator />
+
+                        <div class="alert alert-light border mb-4">
+                            <i class="fa-solid fa-circle-info text-info me-2"></i>
+                            Bu sayfa <strong>@(pageModel.Tenant?.SiteName)</strong> sitesine aittir.
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Sayfa Başlığı</label>
+                            <InputText class="form-control form-control-lg" @bind-Value="pageModel.Title" placeholder="Örn: Hakkımızda" />
+                            <ValidationMessage For="@(() => pageModel.Title)" />
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small text-muted">URL Yolu (Slug)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">/</span>
+                                    <InputText class="form-control" @bind-Value="pageModel.Slug" />
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small text-muted">Sıralama</label>
+                                <InputNumber class="form-control" @bind-Value="pageModel.Order" />
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">İçerik (HTML)</label>
+                            <InputTextArea class="form-control font-monospace" @bind-Value="pageModel.ContentJson" rows="10"
+                                           style="font-size: 0.9rem; background-color: #f8f9fa;" />
+                            <div class="form-text">Buraya HTML formatında içerik girebilirsiniz.</div>
+                        </div>
+
+                        <div class="card bg-light border-0 mb-4">
+                            <div class="card-body">
+                                <div class="form-check form-switch">
+                                    <InputCheckbox class="form-check-input" @bind-Value="pageModel.IsPublished" id="publishCheck" style="transform: scale(1.2);" />
+                                    <label class="form-check-label fw-bold ms-2" for="publishCheck">
+                                        Sayfa Yayında Olsun
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fa-solid fa-floppy-disk me-2"></i> Değişiklikleri Kaydet
+                            </button>
+                        </div>
+
+                    </EditForm>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Page? pageModel;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Sayfayı ve bağlı olduğu Site (Tenant) bilgisini çek
+        pageModel = await DbContext.Pages
+            .IgnoreQueryFilters()
+            .Include(p => p.Tenant)
+            .FirstOrDefaultAsync(p => p.Id == Id);
+
+        if (pageModel == null)
+        {
+            // Sayfa bulunamazsa listeye geri at
+            NavManager.NavigateTo("/pages");
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (pageModel != null)
+        {
+            DbContext.Pages.Update(pageModel);
+            await DbContext.SaveChangesAsync();
+
+            // Kaydettikten sonra listeye dön
+            NavManager.NavigateTo("/pages");
+        }
+    }
+
+    private void GoBack()
+    {
+        NavManager.NavigateTo("/pages");
+    }
+}

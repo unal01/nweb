@@ -1,0 +1,203 @@
+﻿@page "/pages"
+@using CoreBuilder.Entities
+@using CoreBuilder.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavManager
+
+<div class="container-fluid p-0">
+
+    <div class="card shadow-sm mb-4 border-primary border-top border-3">
+        <div class="card-body bg-light">
+            <label class="form-label fw-bold text-primary mb-2">
+                <i class="fa-solid fa-filter me-1"></i> İşlem Yapılacak Siteyi Seçin:
+            </label>
+
+            @if (tenants == null)
+            {
+                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+            }
+            else
+            {
+                <select class="form-select form-select-lg shadow-sm" @onchange="OnTenantChanged">
+                    <option value="0">-- Lütfen Bir Site Seçiniz --</option>
+                    @foreach (var t in tenants)
+                    {
+                        <option value="@t.Id">@t.SiteName (@t.Domain)</option>
+                    }
+                </select>
+            }
+        </div>
+    </div>
+
+    @if (selectedTenantId > 0)
+    {
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0 text-dark">
+                <i class="fa-solid fa-layer-group me-2"></i>
+                <span class="fw-bold">@selectedSiteName</span> - Mevcut Sayfalar
+            </h5>
+            <button class="btn btn-primary shadow-sm" @onclick="GoToCreate">
+                <i class="fa-solid fa-plus me-1"></i> Yeni Sayfa Ekle
+            </button>
+        </div>
+
+        @if (pagesList == null)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary me-2"></div>
+                <span class="text-muted">Sayfalar yükleniyor ve kontrol ediliyor...</span>
+            </div>
+        }
+        else
+        {
+            <div class="card shadow border-0">
+                <div class="card-body p-0">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="bg-primary text-white">
+                            <tr>
+                                <th class="ps-4">Sıra</th>
+                                <th>Sayfa Başlığı</th>
+                                <th>URL Yolu</th>
+                                <th>Durum</th>
+                                <th class="text-end pe-4">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in pagesList)
+                            {
+                                <tr>
+                                    <td class="ps-4 fw-bold text-muted">#@item.Order</td>
+                                    <td class="fw-bold text-dark">@item.Title</td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border font-monospace">
+                                            /@item.Slug
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (item.IsPublished)
+                                        {
+                                            <span class="badge bg-success rounded-pill px-3">Yayında</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary rounded-pill px-3">Taslak</span>
+                                        }
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <div class="btn-group">
+                                            <a href="@($"/pages/edit/{item.Id}")" class="btn btn-sm btn-outline-primary" title="Düzenle">
+                                                <i class="fa-solid fa-pen"></i>
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeletePage(item)" title="Sil">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="text-center py-5 text-muted opacity-50">
+            <i class="fa-solid fa-arrow-pointer fa-3x mb-3"></i>
+            <h4>Lütfen sayfalarını yönetmek istediğiniz siteyi yukarıdan seçin.</h4>
+        </div>
+    }
+
+</div>
+
+@code {
+    private List<Tenant>? tenants;
+    private List<Page>? pagesList;
+    private int selectedTenantId = 0;
+    private string selectedSiteName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        tenants = await DbContext.Tenants.IgnoreQueryFilters().ToListAsync();
+    }
+
+    private async Task OnTenantChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int id))
+        {
+            selectedTenantId = id;
+            if (id > 0)
+            {
+                var site = tenants?.FirstOrDefault(t => t.Id == id);
+                selectedSiteName = site?.SiteName ?? "";
+
+                // Seçilen sitenin sayfalarını yükle ve otomatik oluştur
+                await LoadPagesAndCheckDefaults(id);
+            }
+            else
+            {
+                pagesList = null;
+                selectedSiteName = "";
+            }
+        }
+    }
+
+    private async Task LoadPagesAndCheckDefaults(int tenantId)
+    {
+        // 1. Veritabanından sayfaları çek
+        pagesList = await DbContext.Pages
+            .IgnoreQueryFilters()
+            .Where(p => p.TenantId == tenantId)
+            .OrderBy(p => p.Order)
+            .ToListAsync();
+
+        // 2. Eğer liste BOŞSA -> Otomatik Oluştur
+        if (pagesList == null || pagesList.Count == 0)
+        {
+            await CreateDefaults(tenantId);
+
+            // 3. Oluşturduktan sonra tekrar çek
+            pagesList = await DbContext.Pages
+                .IgnoreQueryFilters()
+                .Where(p => p.TenantId == tenantId)
+                .OrderBy(p => p.Order)
+                .ToListAsync();
+        }
+    }
+
+    private async Task CreateDefaults(int tenantId)
+    {
+        var defaults = new List<Page>
+        {
+            new Page { TenantId = tenantId, Title = "Ana Sayfa", Slug = "", Order = 1, IsPublished = true, ContentJson = "<h1>Hoş Geldiniz</h1>" },
+            new Page { TenantId = tenantId, Title = "Hakkımızda", Slug = "hakkimizda", Order = 2, IsPublished = true, ContentJson = "<h1>Hakkımızda</h1>" },
+            new Page { TenantId = tenantId, Title = "Hizmetlerimiz", Slug = "hizmetlerimiz", Order = 3, IsPublished = true, ContentJson = "<h1>Hizmetler</h1>" },
+            new Page { TenantId = tenantId, Title = "İletişim", Slug = "iletisim", Order = 4, IsPublished = true, ContentJson = "<h1>İletişim</h1>" }
+        };
+
+        DbContext.Pages.AddRange(defaults);
+        await DbContext.SaveChangesAsync();
+    }
+
+    private void GoToCreate()
+    {
+        if (selectedTenantId > 0)
+        {
+            NavManager.NavigateTo($"/pages/create/{selectedTenantId}");
+        }
+    }
+
+    private async Task DeletePage(Page item)
+    {
+        DbContext.Pages.Remove(item);
+        await DbContext.SaveChangesAsync();
+
+        pagesList = await DbContext.Pages
+            .IgnoreQueryFilters()
+            .Where(p => p.TenantId == selectedTenantId)
+            .OrderBy(p => p.Order)
+            .ToListAsync();
+    }
+}

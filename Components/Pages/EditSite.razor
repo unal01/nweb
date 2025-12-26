@@ -1,0 +1,328 @@
+﻿@page "/sites/edit/{Id:int}"
+@using CoreBuilder.Entities
+@using CoreBuilder.Data
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Hosting
+@using System.IO
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavManager
+@inject IWebHostEnvironment WebEnvironment
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3><i class="fa-solid fa-palette text-primary"></i> Site ve Tasarım Ayarları</h3>
+    <button class="btn btn-secondary" @onclick="GoBack">
+        <i class="fa-solid fa-arrow-left"></i> Geri Dön
+    </button>
+</div>
+
+@if (isLoading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <div class="mt-2 text-muted">Site bilgileri yükleniyor...</div>
+    </div>
+}
+else if (tenant == null)
+{
+    <div class="alert alert-danger">
+        <i class="fa-solid fa-circle-exclamation me-2"></i> Site bulunamadı!
+    </div>
+}
+else
+{
+    <EditForm Model="@tenant" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item">
+                <button type="button" class="nav-link @(activeTab == "genel" ? "active" : "")" @onclick='() => activeTab = "genel"'>
+                    <i class="fa-solid fa-info-circle me-2"></i>Genel Bilgiler
+                </button>
+            </li>
+            <li class="nav-item">
+                <button type="button" class="nav-link @(activeTab == "tasarim" ? "active" : "")" @onclick='() => activeTab = "tasarim"'>
+                    <i class="fa-solid fa-paintbrush me-2"></i>Tasarım & Renkler
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade @(activeTab == "genel" ? "show active" : "")">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Site Adı</label>
+                            <InputText class="form-control" @bind-Value="tenant.SiteName" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Domain</label>
+                            <InputText class="form-control bg-light" @bind-Value="tenant.Domain" readonly />
+                        </div>
+                        <div class="form-check form-switch">
+                            <InputCheckbox class="form-check-input" @bind-Value="tenant.IsActive" id="siteAktif" />
+                            <label class="form-check-label" for="siteAktif">Site Yayında (Aktif)</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade @(activeTab == "tasarim" ? "show active" : "")">
+                <div class="row">
+                    <div class="col-lg-5">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <h5 class="mb-3 text-primary border-bottom pb-2">Ayarlar</h5>
+
+                                @if (tenant.ThemeSettings != null)
+                                {
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold small text-muted">RENKLER</label>
+                                        <div class="mb-2 d-flex align-items-center">
+                                            <input type="color" class="form-control form-control-color me-2" @bind="tenant.ThemeSettings.PrimaryColor" @bind:event="oninput">
+                                            <label class="form-label mb-0">Ana Renk</label>
+                                        </div>
+                                        <div class="mb-2 d-flex align-items-center">
+                                            <input type="color" class="form-control form-control-color me-2" @bind="tenant.ThemeSettings.SecondaryColor" @bind:event="oninput">
+                                            <label class="form-label mb-0">İkincil Renk</label>
+                                        </div>
+                                        <div class="mb-2 d-flex align-items-center">
+                                            <input type="color" class="form-control form-control-color me-2" @bind="tenant.ThemeSettings.HeaderBgColor" @bind:event="oninput">
+                                            <label class="form-label mb-0">Header Rengi</label>
+                                        </div>
+                                        <div class="mb-2 d-flex align-items-center">
+                                            <input type="color" class="form-control form-control-color me-2" @bind="tenant.ThemeSettings.MenuTextColor" @bind:event="oninput">
+                                            <label class="form-label mb-0">Menü Yazı Rengi</label>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-4 pt-3 border-top">
+                                        <label class="form-label fw-bold small text-muted">GÖRÜNÜM</label>
+
+                                        <div class="d-flex gap-3 mb-3 bg-light p-2 rounded border">
+                                            <div class="form-check form-switch">
+                                                <InputCheckbox class="form-check-input" @bind-Value="tenant.ThemeSettings.ShowLogo" id="chkLogo" />
+                                                <label class="form-check-label small fw-bold" for="chkLogo">Logoyu Göster</label>
+                                            </div>
+                                            <div class="form-check form-switch">
+                                                <InputCheckbox class="form-check-input" @bind-Value="tenant.ThemeSettings.ShowSiteName" id="chkName" />
+                                                <label class="form-check-label small fw-bold" for="chkName">Site Adını Göster</label>
+                                            </div>
+                                        </div>
+
+                                        @if (!string.IsNullOrEmpty(tenant.ThemeSettings.LogoUrl))
+                                        {
+                                            <div class="mb-3 p-2 border rounded bg-white d-flex align-items-center justify-content-between">
+                                                <div class="d-flex align-items-center">
+                                                    <img src="@tenant.ThemeSettings.LogoUrl" style="height: 40px; object-fit: contain;" class="me-2 border" />
+                                                    <span class="small text-muted">Mevcut Logo</span>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="RemoveLogo">
+                                                    <i class="fa-solid fa-trash"></i> Kaldır
+                                                </button>
+                                            </div>
+                                        }
+
+                                        <div class="mb-3">
+                                            <label class="form-label mb-1">@(string.IsNullOrEmpty(tenant.ThemeSettings.LogoUrl) ? "Logo Yükle" : "Logoyu Değiştir")</label>
+                                            <InputFile OnChange="UploadLogo" class="form-control form-control-sm" accept=".png,.jpg,.jpeg" />
+
+                                            @if (isUploading)
+                                            {
+                                                <div class="text-primary small mt-1">
+                                                    <span class="spinner-border spinner-border-sm me-1"></span> Yükleniyor...
+                                                </div>
+                                            }
+                                            else if (!string.IsNullOrEmpty(uploadError))
+                                            {
+                                                <div class="text-danger small mt-1">@uploadError</div>
+                                            }
+                                            else if (!string.IsNullOrEmpty(uploadStatus))
+                                            {
+                                                <div class="text-success small mt-1 fw-bold">@uploadStatus</div>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div class="pt-3 border-top">
+                                        <label class="form-label fw-bold small text-muted">DÜZEN</label>
+                                        <div class="mb-3">
+                                            <label class="form-label mb-1">Yazı Tipi</label>
+                                            <InputSelect class="form-select" @bind-Value="tenant.ThemeSettings.FontFamily">
+                                                <option value="Inter">Inter</option>
+                                                <option value="Roboto">Roboto</option>
+                                                <option value="'Courier New', monospace">Courier</option>
+                                                <option value="Georgia, serif">Georgia</option>
+                                            </InputSelect>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label mb-1">Menü Tipi</label>
+                                            <div class="btn-group w-100" role="group">
+                                                <input type="radio" class="btn-check" name="menuType" id="menuYatay"
+                                                       checked="@(tenant.ThemeSettings.MenuType == "Yatay")"
+                                                       @onchange="@(() => tenant.ThemeSettings.MenuType = "Yatay")">
+                                                <label class="btn btn-outline-primary btn-sm" for="menuYatay">Yatay</label>
+
+                                                <input type="radio" class="btn-check" name="menuType" id="menuDikey"
+                                                       checked="@(tenant.ThemeSettings.MenuType == "Dikey")"
+                                                       @onchange="@(() => tenant.ThemeSettings.MenuType = "Dikey")">
+                                                <label class="btn btn-outline-primary btn-sm" for="menuDikey">Dikey</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="alert alert-warning">Tema ayarları yüklenemedi.</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-7">
+                        <div class="sticky-top" style="top: 20px;">
+                            <h5 class="mb-3 text-muted ms-1">Canlı Önizleme</h5>
+                            @if (tenant.ThemeSettings != null)
+                            {
+                                <SitePreview Theme="@tenant.ThemeSettings"
+                                             Domain="@tenant.Domain"
+                                             SiteName="@tenant.SiteName" />
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end mt-4">
+            <button type="submit" class="btn btn-success btn-lg">
+                <i class="fa-solid fa-check-circle me-2"></i> Tümünü Kaydet
+            </button>
+        </div>
+
+    </EditForm>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Tenant? tenant;
+    private string activeTab = "genel";
+    private string uploadStatus = "";
+    private string uploadError = "";
+    private bool isUploading = false;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Veritabanı filtresini kapatarak hatayı önlüyoruz
+            tenant = await DbContext.Tenants
+                .IgnoreQueryFilters()
+                .Include(t => t.ThemeSettings)
+                .FirstOrDefaultAsync(t => t.Id == Id);
+
+            // ThemeSettings yoksa oluştur
+            if (tenant != null && tenant.ThemeSettings == null)
+            {
+                tenant.ThemeSettings = new ThemeSettings
+                {
+                    TenantId = tenant.Id,
+                    PrimaryColor = "#0d6efd",
+                    SecondaryColor = "#6c757d",
+                    HeaderBgColor = "#ffffff",
+                    MenuTextColor = "#333333",
+                    FontFamily = "Inter",
+                    MenuType = "Yatay",
+                    ShowLogo = true,
+                    ShowSiteName = true
+                };
+                DbContext.ThemeSettings.Add(tenant.ThemeSettings);
+                await DbContext.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Hata: " + ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RemoveLogo()
+    {
+        if (tenant?.ThemeSettings != null)
+        {
+            tenant.ThemeSettings.LogoUrl = null;
+            DbContext.Tenants.Update(tenant);
+            await DbContext.SaveChangesAsync();
+            uploadStatus = "Logo silindi.";
+        }
+    }
+
+    private async Task UploadLogo(InputFileChangeEventArgs e)
+    {
+        isUploading = true;
+        uploadError = "";
+        uploadStatus = "";
+
+        try
+        {
+            var file = e.File;
+            long maxFileSize = 5 * 1024 * 1024; // 5 MB
+
+            if (file.Size > maxFileSize)
+            {
+                uploadError = "Dosya çok büyük! (Max 5MB)";
+                return;
+            }
+
+            // wwwroot klasörünü bul veya oluştur
+            var webRoot = WebEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var uploadPath = Path.Combine(webRoot, "uploads");
+            if (!Directory.Exists(uploadPath)) Directory.CreateDirectory(uploadPath);
+
+            var fileName = $"logo-{tenant.Id}-{DateTime.Now.Ticks}{Path.GetExtension(file.Name)}";
+            var filePath = Path.Combine(uploadPath, fileName);
+
+            // GÜVENLİ YÜKLEME
+            using (var stream = file.OpenReadStream(maxAllowedSize: maxFileSize))
+            {
+                using (var ms = new MemoryStream())
+                {
+                    await stream.CopyToAsync(ms);
+                    await File.WriteAllBytesAsync(filePath, ms.ToArray());
+                }
+            }
+
+            // Anında kaydet
+            tenant.ThemeSettings.LogoUrl = $"/uploads/{fileName}";
+            DbContext.Tenants.Update(tenant);
+            await DbContext.SaveChangesAsync();
+
+            uploadStatus = "✔ Logo başarıyla kaydedildi!";
+        }
+        catch (Exception ex)
+        {
+            uploadError = "Hata: " + ex.Message;
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (tenant != null)
+        {
+            DbContext.Tenants.Update(tenant);
+            await DbContext.SaveChangesAsync();
+            NavManager.NavigateTo("/sites");
+        }
+    }
+
+    private void GoBack() => NavManager.NavigateTo("/sites");
+}

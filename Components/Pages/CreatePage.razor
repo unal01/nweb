@@ -1,0 +1,135 @@
+﻿@page "/pages/create"
+@page "/pages/create/{TenantId:int}"
+@using CoreBuilder.Entities
+@using CoreBuilder.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavManager
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fa-solid fa-file-circle-plus me-2"></i>Yeni Sayfa Oluştur</h5>
+                <button class="btn btn-sm btn-light text-primary" @onclick="GoBack">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="card-body">
+                <EditForm Model="@newPage" OnValidSubmit="HandleSubmit">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="mb-4 bg-light p-3 rounded border">
+                        <label class="form-label fw-bold">Sayfanın Ekleneceği Site</label>
+                        @if (tenants == null)
+                        {
+                            <p class="text-muted"><span class="spinner-border spinner-border-sm me-1"></span>Siteler yükleniyor...</p>
+                        }
+                        else
+                        {
+                            <InputSelect class="form-select" @bind-Value="newPage.TenantId">
+                                <option value="0">-- Bir Site Seçin --</option>
+                                @foreach (var site in tenants)
+                                {
+                                    <option value="@site.Id">@site.SiteName (@site.Domain)</option>
+                                }
+                            </InputSelect>
+                            <small class="text-danger"><ValidationMessage For="@(() => newPage.TenantId)" /></small>
+                        }
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Sayfa Başlığı</label>
+                        <InputText class="form-control" @bind-Value="newPage.Title" placeholder="Örn: Hakkımızda" />
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">URL Uzantısı (Slug)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">/</span>
+                                <InputText class="form-control" @bind-Value="newPage.Slug" placeholder="Otomatik oluşur" />
+                            </div>
+                            <small class="text-muted" style="font-size: 0.75rem;">Boş bırakırsanız başlıktan üretilir.</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Sıralama</label>
+                            <InputNumber class="form-control" @bind-Value="newPage.Order" />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">İçerik (HTML)</label>
+                        <InputTextArea class="form-control" @bind-Value="newPage.ContentJson" rows="6" placeholder="Sayfa içeriğini buraya yazın..." />
+                    </div>
+
+                    <div class="form-check form-switch mb-4">
+                        <InputCheckbox class="form-check-input" @bind-Value="newPage.IsPublished" id="publishCheck" />
+                        <label class="form-check-label" for="publishCheck">Sayfayı Yayına Al</label>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" @onclick="GoBack">İptal</button>
+                        <button type="submit" class="btn btn-success"><i class="fa-solid fa-save me-1"></i> Kaydet</button>
+                    </div>
+
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // URL'den gelen ID parametresi (Opsiyonel)
+    [Parameter]
+    public int? TenantId { get; set; }
+
+    private Page newPage = new Page { IsPublished = true, Order = 1 };
+    private List<Tenant>? tenants;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Siteleri Yükle
+        tenants = await DbContext.Tenants.IgnoreQueryFilters().ToListAsync();
+
+        // Eğer URL'den bir TenantId geldiyse, formu o siteye ayarla
+        if (TenantId.HasValue && TenantId.Value > 0)
+        {
+            newPage.TenantId = TenantId.Value;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (newPage.TenantId == 0) return; // Site seçilmemişse dur
+
+        // Slug Otomatik Oluşturma
+        if (string.IsNullOrWhiteSpace(newPage.Slug))
+        {
+            newPage.Slug = GenerateSlug(newPage.Title);
+        }
+
+        DbContext.Pages.Add(newPage);
+        await DbContext.SaveChangesAsync();
+
+        // Kaydettikten sonra sayfalar listesine geri dön
+        NavManager.NavigateTo("/pages");
+    }
+
+    private string GenerateSlug(string title)
+    {
+        if (string.IsNullOrEmpty(title)) return "";
+        return title.ToLower()
+            .Replace("ş", "s").Replace("ı", "i").Replace("ğ", "g")
+            .Replace("ü", "u").Replace("ö", "o").Replace("ç", "c")
+            .Replace(" ", "-")
+            .Replace(".", "")
+            .Replace("?", "");
+    }
+
+    private void GoBack()
+    {
+        NavManager.NavigateTo("/pages");
+    }
+}
