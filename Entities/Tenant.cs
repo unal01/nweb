@@ -1,23 +1,27 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Security.Cryptography.Pkcs;
 
 namespace CoreBuilder.Entities
 {
     public class Tenant : BaseEntity
     {
         [Required]
-        public string SiteName { get; set; } // Örn: Bartin Sinav Ileri Kurs
+        public string SiteName { get; set; } = string.Empty; // Boş değer atadık (Uyarı gider)
 
         [Required]
-        public string Domain { get; set; } // Örn: sinav.localhost
+        public string Domain { get; set; } = string.Empty; // Boş değer atadık (Uyarı gider)
 
-        public string Category { get; set; } // Egitim, Kurumsal vb.
+        public string? Category { get; set; } // '?' koyduk, boş geçilebilir olsun
 
         public bool IsActive { get; set; } = true;
 
-        // İlişkiler
-        public ThemeSettings ThemeSettings { get; set; }
-        public ContactInfo ContactInfo { get; set; }
-        public ICollection<Page> Pages { get; set; }
+        // --- İLİŞKİLER ---
+
+        // Soru işareti (?) koyuyoruz ki siteyi ilk oluştururken bu bilgiler henüz yoksa hata vermesin.
+        public ThemeSettings? ThemeSettings { get; set; }
+        public ContactInfo? ContactInfo { get; set; }
+
+        // Listeyi başlatıyoruz (= new List<Page>()). 
+        // Böylece sayfalar henüz yokken 'null' hatası almazsın.
+        public ICollection<Page> Pages { get; set; } = new List<Page>();
     }
 }

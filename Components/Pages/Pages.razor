@@ -2,11 +2,11 @@
 @using CoreBuilder.Entities
 @using CoreBuilder.Data
 @using Microsoft.EntityFrameworkCore
-@inject ApplicationDbContext DbContext
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject NavigationManager NavManager
+@rendermode InteractiveServer
 
 <div class="container-fluid p-0">
-
     <div class="card shadow-sm mb-4 border-primary border-top border-3">
         <div class="card-body bg-light">
             <label class="form-label fw-bold text-primary mb-2">
@@ -19,7 +19,7 @@
             }
             else
             {
-                <select class="form-select form-select-lg shadow-sm" @onchange="OnTenantChanged">
+                <select class="form-select form-select-lg shadow-sm" @bind="selectedTenantId" @bind:after="OnTenantChanged">
                     <option value="0">-- Lütfen Bir Site Seçiniz --</option>
                     @foreach (var t in tenants)
                     {
@@ -44,10 +44,11 @@
 
         @if (pagesList == null)
         {
-            <div class="text-center py-5">
-                <div class="spinner-border text-primary me-2"></div>
-                <span class="text-muted">Sayfalar yükleniyor ve kontrol ediliyor...</span>
-            </div>
+            <div class="text-center py-5"><div class="spinner-border text-primary me-2"></div> Yükleniyor...</div>
+        }
+        else if (pagesList.Count == 0)
+        {
+            <div class="alert alert-info shadow-sm">Bu siteye ait sayfa yok.</div>
         }
         else
         {
@@ -56,43 +57,53 @@
                     <table class="table table-hover table-striped mb-0 align-middle">
                         <thead class="bg-primary text-white">
                             <tr>
-                                <th class="ps-4">Sıra</th>
-                                <th>Sayfa Başlığı</th>
-                                <th>URL Yolu</th>
+                                <th class="ps-4" style="width: 120px;">Sıralama</th>
+                                <th>Başlık</th>
+                                <th>URL</th>
                                 <th>Durum</th>
-                                <th class="text-end pe-4">İşlemler</th>
+                                <th class="text-end pe-4" style="width: 150px;">İşlemler</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var item in pagesList)
                             {
                                 <tr>
-                                    <td class="ps-4 fw-bold text-muted">#@item.Order</td>
-                                    <td class="fw-bold text-dark">@item.Title</td>
-                                    <td>
-                                        <span class="badge bg-light text-dark border font-monospace">
-                                            /@item.Slug
-                                        </span>
+                                    <td class="ps-4">
+                                        <div class="btn-group btn-group-sm shadow-sm">
+                                            <button class="btn btn-light border text-secondary" @onclick="() => MovePage(item, -1)" title="Yukarı Taşı">
+                                                <i class="fa-solid fa-arrow-up"></i>
+                                            </button>
+                                            <button class="btn btn-light border text-secondary" @onclick="() => MovePage(item, 1)" title="Aşağı Taşı">
+                                                <i class="fa-solid fa-arrow-down"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                     <td>
-                                        @if (item.IsPublished)
+                                        @if (item.ParentId != null && item.ParentId > 0)
                                         {
-                                            <span class="badge bg-success rounded-pill px-3">Yayında</span>
+                                            <span class="text-muted ms-4 me-1" style="font-size: 1.2em;">↳</span>
+                                            <span class="text-dark">@item.Title</span>
                                         }
                                         else
                                         {
-                                            <span class="badge bg-secondary rounded-pill px-3">Taslak</span>
+                                            <span class="fw-bold text-primary">@item.Title</span>
+                                        }
+                                    </td>
+                                    <td><span class="badge bg-light text-dark border">/@item.Slug</span></td>
+                                    <td>
+                                        @if (item.IsPublished)
+                                        {
+                                            <span class="badge bg-success">Yayında</span>
+                                        }
+                                        else
+                                        {
+
+                                            <span class="badge bg-secondary">Taslak</span>
                                         }
                                     </td>
                                     <td class="text-end pe-4">
-                                        <div class="btn-group">
-                                            <a href="@($"/pages/edit/{item.Id}")" class="btn btn-sm btn-outline-primary" title="Düzenle">
-                                                <i class="fa-solid fa-pen"></i>
-                                            </a>
-                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeletePage(item)" title="Sil">
-                                                <i class="fa-solid fa-trash"></i>
-                                            </button>
-                                        </div>
+                                        <a href="@($"/editpage/{item.Id}/{selectedTenantId}")" class="btn btn-sm btn-outline-primary me-1"><i class="fa-solid fa-pen"></i></a>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeletePage(item.Id)"><i class="fa-solid fa-trash"></i></button>
                                     </td>
                                 </tr>
                             }
@@ -102,17 +113,12 @@
             </div>
         }
     }
-    else
-    {
-        <div class="text-center py-5 text-muted opacity-50">
-            <i class="fa-solid fa-arrow-pointer fa-3x mb-3"></i>
-            <h4>Lütfen sayfalarını yönetmek istediğiniz siteyi yukarıdan seçin.</h4>
-        </div>
-    }
-
 </div>
 
 @code {
+    [SupplyParameterFromQuery]
+    public int? OpenSiteId { get; set; }
+
     private List<Tenant>? tenants;
     private List<Page>? pagesList;
     private int selectedTenantId = 0;
@@ -120,84 +126,121 @@
 
     protected override async Task OnInitializedAsync()
     {
-        tenants = await DbContext.Tenants.IgnoreQueryFilters().ToListAsync();
+        using var context = DbFactory.CreateDbContext();
+        tenants = await context.Tenants.IgnoreQueryFilters().ToListAsync();
     }
 
-    private async Task OnTenantChanged(ChangeEventArgs e)
+    protected override async Task OnParametersSetAsync()
     {
-        if (int.TryParse(e.Value?.ToString(), out int id))
+        if (OpenSiteId.HasValue && OpenSiteId.Value > 0 && tenants != null)
         {
-            selectedTenantId = id;
-            if (id > 0)
-            {
-                var site = tenants?.FirstOrDefault(t => t.Id == id);
-                selectedSiteName = site?.SiteName ?? "";
-
-                // Seçilen sitenin sayfalarını yükle ve otomatik oluştur
-                await LoadPagesAndCheckDefaults(id);
-            }
-            else
-            {
-                pagesList = null;
-                selectedSiteName = "";
-            }
+            selectedTenantId = OpenSiteId.Value;
+            await OnTenantChanged();
         }
     }
 
-    private async Task LoadPagesAndCheckDefaults(int tenantId)
+    private async Task OnTenantChanged()
     {
-        // 1. Veritabanından sayfaları çek
-        pagesList = await DbContext.Pages
+        if (selectedTenantId > 0)
+        {
+            using var context = DbFactory.CreateDbContext();
+            var site = tenants?.FirstOrDefault(t => t.Id == selectedTenantId);
+            selectedSiteName = site?.SiteName ?? "";
+            await LoadPages(selectedTenantId);
+        }
+        else
+        {
+            pagesList = null;
+        }
+    }
+
+    private async Task LoadPages(int tenantId)
+    {
+        using var context = DbFactory.CreateDbContext();
+        var allPages = await context.Pages
             .IgnoreQueryFilters()
+            .AsNoTracking()
             .Where(p => p.TenantId == tenantId)
             .OrderBy(p => p.Order)
             .ToListAsync();
 
-        // 2. Eğer liste BOŞSA -> Otomatik Oluştur
-        if (pagesList == null || pagesList.Count == 0)
-        {
-            await CreateDefaults(tenantId);
+        var sortedList = new List<Page>();
+        var rootPages = allPages.Where(p => p.ParentId == null || p.ParentId == 0).ToList();
 
-            // 3. Oluşturduktan sonra tekrar çek
-            pagesList = await DbContext.Pages
-                .IgnoreQueryFilters()
-                .Where(p => p.TenantId == tenantId)
-                .OrderBy(p => p.Order)
-                .ToListAsync();
+        foreach (var parent in rootPages)
+        {
+            sortedList.Add(parent);
+            var children = allPages.Where(p => p.ParentId == parent.Id).ToList();
+            if (children.Any()) sortedList.AddRange(children);
+        }
+        pagesList = sortedList;
+    }
+
+    // --- HATAYI ÇÖZEN KISIM BURASI ---
+    private async Task MovePage(Page item, int direction)
+    {
+        using var context = DbFactory.CreateDbContext();
+
+        // 1. Kardeşleri çekiyoruz (Bunlar şu an context tarafından İZLENİYOR)
+        var siblings = await context.Pages
+            .IgnoreQueryFilters() // Silinenleri vb. görebilsin
+            .Where(p => p.TenantId == selectedTenantId && p.ParentId == item.ParentId)
+            .OrderBy(p => p.Order)
+            .ToListAsync();
+
+        // 2. Dışarıdan gelen 'item' nesnesi yerine, listedeki 'CANLI' nesneyi buluyoruz
+        var currentEntity = siblings.FirstOrDefault(p => p.Id == item.Id);
+
+        // Eğer bir terslik olur da bulamazsa işlemi durdur
+        if (currentEntity == null) return;
+
+        // 3. İndeks hesaplamaları
+        var currentIndex = siblings.IndexOf(currentEntity);
+        var newIndex = currentIndex + direction;
+
+        // 4. Liste sınırlarını kontrol et
+        if (newIndex >= 0 && newIndex < siblings.Count)
+        {
+            // Hedefteki canlı nesne
+            var targetEntity = siblings[newIndex];
+
+            // 5. Sıraları değiştir (Takas)
+            int tempOrder = currentEntity.Order;
+            currentEntity.Order = targetEntity.Order;
+            targetEntity.Order = tempOrder;
+
+            // Eğer order numaraları bozuksa ve eşitse manuel kaydır
+            if (currentEntity.Order == targetEntity.Order)
+            {
+                currentEntity.Order += direction;
+            }
+
+            // 6. Kaydet
+            // Burada 'Update' çağırmamıza gerek yok çünkü 'siblings' listesi
+            // veritabanından context ile çekildiği için zaten takip ediliyor.
+            // Sadece SaveChanges yeteli.
+            await context.SaveChangesAsync();
+
+            // Listeyi yenile
+            await LoadPages(selectedTenantId);
         }
     }
 
-    private async Task CreateDefaults(int tenantId)
+    private async Task DeletePage(int pageId)
     {
-        var defaults = new List<Page>
+        using var context = DbFactory.CreateDbContext();
+        var page = await context.Pages.IgnoreQueryFilters().FirstOrDefaultAsync(p => p.Id == pageId);
+        if (page != null)
         {
-            new Page { TenantId = tenantId, Title = "Ana Sayfa", Slug = "", Order = 1, IsPublished = true, ContentJson = "<h1>Hoş Geldiniz</h1>" },
-            new Page { TenantId = tenantId, Title = "Hakkımızda", Slug = "hakkimizda", Order = 2, IsPublished = true, ContentJson = "<h1>Hakkımızda</h1>" },
-            new Page { TenantId = tenantId, Title = "Hizmetlerimiz", Slug = "hizmetlerimiz", Order = 3, IsPublished = true, ContentJson = "<h1>Hizmetler</h1>" },
-            new Page { TenantId = tenantId, Title = "İletişim", Slug = "iletisim", Order = 4, IsPublished = true, ContentJson = "<h1>İletişim</h1>" }
-        };
-
-        DbContext.Pages.AddRange(defaults);
-        await DbContext.SaveChangesAsync();
+            context.Pages.Remove(page);
+            await context.SaveChangesAsync();
+            await LoadPages(selectedTenantId);
+        }
     }
 
     private void GoToCreate()
     {
         if (selectedTenantId > 0)
-        {
-            NavManager.NavigateTo($"/pages/create/{selectedTenantId}");
-        }
-    }
-
-    private async Task DeletePage(Page item)
-    {
-        DbContext.Pages.Remove(item);
-        await DbContext.SaveChangesAsync();
-
-        pagesList = await DbContext.Pages
-            .IgnoreQueryFilters()
-            .Where(p => p.TenantId == selectedTenantId)
-            .OrderBy(p => p.Order)
-            .ToListAsync();
+            NavManager.NavigateTo($"/editpage/0/{selectedTenantId}");
     }
 }

@@ -1,0 +1,137 @@
+﻿@page "/file-check"
+@using System.IO
+@inject IWebHostEnvironment Environment
+
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-warning text-dark">
+            <h3><i class="fa-solid fa-folder-open me-2"></i> Dosya Yükleme (Upload) Kontrolü</h3>
+        </div>
+        <div class="card-body">
+
+            <button class="btn btn-warning mb-4 fw-bold" @onclick="RunFileDiagnostics">
+                <i class="fa-solid fa-play me-2"></i> Dosya Erişim Testini Başlat
+            </button>
+
+            @if (!string.IsNullOrEmpty(statusMessage))
+            {
+                <div class="alert @statusClass">
+                    <h5 class="alert-heading">Sonuç:</h5>
+                    <pre style="white-space: pre-wrap;">@statusMessage</pre>
+                </div>
+            }
+
+            <hr />
+            <h5>Test Adımları:</h5>
+            <ul class="list-group">
+                <li class="list-group-item">
+                    <strong>1. Ana Klasör (wwwroot) Tespiti:</strong>
+                    @if (step1)
+                    {
+                        <span class="badge bg-success">BULUNDU</span>
+                    }
+                    else
+                    {
+
+                        <span class="badge bg-secondary">Bekliyor...</span>
+                    }
+                </li>
+                <li class="list-group-item">
+                    <strong>2. Upload Klasörü Kontrolü:</strong>
+                    @if (step2)
+                    {
+                        <span class="badge bg-success">BAŞARILI</span>
+                    }
+                    else
+                    {
+
+                        <span class="badge bg-secondary">Bekliyor...</span>
+                    }
+                </li>
+                <li class="list-group-item">
+                    <strong>3. Yazma ve Silme Testi:</strong>
+                    @if (step3)
+                    {
+                        <span class="badge bg-success">BAŞARILI</span>
+                    }
+                    else
+                    {
+
+                        <span class="badge bg-secondary">Bekliyor...</span>
+                    }
+                </li>
+            </ul>
+
+        </div>
+    </div>
+</div>
+
+@code {
+    private string statusMessage = "";
+    private string statusClass = "alert-secondary";
+    private bool step1 = false;
+    private bool step2 = false;
+    private bool step3 = false;
+
+    private void RunFileDiagnostics()
+    {
+        statusMessage = "Dosya sistemi testi başlatılıyor...";
+        statusClass = "alert-info";
+        step1 = step2 = step3 = false;
+
+        try
+        {
+            // ADIM 1: wwwroot Klasörü Nerede?
+            string webRootPath = Environment.WebRootPath;
+            if (string.IsNullOrEmpty(webRootPath))
+            {
+                throw new Exception("HATA: 'wwwroot' klasörü bulunamadı! StaticFiles ayarı Program.cs içinde eksik olabilir.");
+            }
+            statusMessage += $"\n✔ Ana Klasör Yolu: {webRootPath}";
+            step1 = true;
+
+            // ADIM 2: Hedef Klasör Var mı? (Örn: uploads/logos)
+            // Genelde logoları buraya koyarız, yoksa oluşturalım.
+            string uploadPath = Path.Combine(webRootPath, "uploads", "logos");
+            statusMessage += $"\n✔ Hedef Klasör: {uploadPath}";
+
+            if (!Directory.Exists(uploadPath))
+            {
+                statusMessage += "\n⚠ Klasör yok, oluşturulmaya çalışılıyor...";
+                Directory.CreateDirectory(uploadPath);
+                statusMessage += "\n✔ Klasör başarıyla oluşturuldu.";
+            }
+            else
+            {
+                statusMessage += "\n✔ Klasör zaten mevcut.";
+            }
+            step2 = true;
+
+            // ADIM 3: Yazma İzni Testi (Küçük bir dosya yazıp sileceğiz)
+            string testFilePath = Path.Combine(uploadPath, "test_permission.txt");
+            string content = "Bu dosya CoreBuilder yazma izni testidir.";
+
+            // Yaz
+            File.WriteAllText(testFilePath, content);
+            statusMessage += "\n✔ Test dosyası başarıyla yazıldı (Yazma İzni VAR).";
+
+            // Oku (Teyit)
+            if (!File.Exists(testFilePath)) throw new Exception("Dosya yazıldı dendi ama bulunamadı!");
+
+            // Sil
+            File.Delete(testFilePath);
+            statusMessage += "\n✔ Test dosyası temizlendi (Silme İzni VAR).";
+            step3 = true;
+
+            statusMessage += "\n\n✅ HARİKA! DOSYA SİSTEMİ ÇALIŞIYOR. SORUN BURADA DEĞİL.";
+            statusClass = "alert-success";
+        }
+        catch (Exception ex)
+        {
+            statusMessage += $"\n\n❌ DOSYA HATASI:\n{ex.Message}";
+            if (ex.InnerException != null) statusMessage += $"\nDetay: {ex.InnerException.Message}";
+
+            statusClass = "alert-danger";
+        }
+    }
+}

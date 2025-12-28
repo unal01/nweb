@@ -1,23 +1,159 @@
 ﻿@inherits LayoutComponentBase
+@using Microsoft.EntityFrameworkCore
+@using CoreBuilder.Data
+@using CoreBuilder.Entities
+@inject NavigationManager NavManager
+@inject ApplicationDbContext DbContext
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@* --- CSS: Menülerin üzerine gelince açılması için --- *@
+<style>
+    /* Admin panelini etkilememesi için @@media kullanıyoruz */
+    @@media all and (min-width: 992px) {
+        .navbar-nav .dropdown:hover .dropdown-menu {
+            display: block;
+            margin-top: 0;
+        }
+    }
+</style>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+@if (IsAdminPanel)
+{
+    @* ========================================== *@
+    @* BURASI SENİN ESKİ ADMIN PANELİN       *@
+    @* ========================================== *@
+    <div class="page">
+        <div class="sidebar">
+            <NavMenu />
         </div>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+        <main>
+            <div class="top-row px-4">
+                <a href="/" target="_blank">Siteyi Önizle</a>
+            </div>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </div>
+}
+else
+{
+    @* ========================================== *@
+    @* BURASI MÜŞTERİ SİTESİ            *@
+    @* ========================================== *@
+    @if (!isLoaded)
+    {
+        <div class="d-flex justify-content-center align-items-center vh-100">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    }
+    else
+    {
+        <CascadingValue Value="currentTenant">
+            <div class="d-flex flex-column min-vh-100">
+
+                @* NAVBAR *@
+                <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+                    <div class="container">
+                        <a class="navbar-brand fw-bold" href="/">@(currentTenant?.SiteName ?? "Site Adı")</a>
+
+                        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                            <span class="navbar-toggler-icon"></span>
+                        </button>
+
+                        <div class="collapse navbar-collapse" id="navbarNav">
+                            <ul class="navbar-nav ms-auto">
+                                <li class="nav-item"><a class="nav-link" href="/">Anasayfa</a></li>
+
+                                @* MENÜLERİ LİSTELE *@
+                                @foreach (var parentPage in menuPages.Where(p => p.ParentId == null || p.ParentId == 0))
+                                {
+                                    var children = menuPages.Where(p => p.ParentId == parentPage.Id).ToList();
+
+                                    if (children.Any())
+                                    {
+                                        // --- AÇILIR MENÜ ---
+                                        <li class="nav-item dropdown">
+                                            <a class="nav-link dropdown-toggle" href="javascript:void(0)" id="navDrop_@parentPage.Id" role="button" aria-expanded="false">
+                                                @parentPage.Title
+                                            </a>
+                                            <ul class="dropdown-menu">
+                                                @foreach (var child in children)
+                                                {
+                                                    <li><a class="dropdown-item" href="/@child.Slug">@child.Title</a></li>
+                                                }
+                                            </ul>
+                                        </li>
+                                    }
+                                    else
+                                    {
+                                        // --- NORMAL LİNK ---
+                                        if (parentPage.Slug == "/" || parentPage.Slug == "home") continue;
+
+                                        <li class="nav-item">
+                                            <a class="nav-link" href="/@parentPage.Slug">@parentPage.Title</a>
+                                        </li>
+                                    }
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </nav>
+
+                @* İÇERİK ALANI *@
+                <main class="flex-grow-1">
+                    @Body
+                </main>
+
+                @* FOOTER *@
+                <footer class="bg-dark text-light py-4 mt-auto text-center">
+                    &copy; @DateTime.Now.Year @(currentTenant?.SiteName ?? "CoreBuilder")
+                </footer>
+            </div>
+        </CascadingValue>
+    }
+}
+
+<div id="blazor-error-ui">
+    Hata oluştu.
+    <a href="" class="reload">Yenile</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private bool IsAdminPanel = false;
+    private bool isLoaded = false;
+    private Tenant? currentTenant;
+    private List<Page> menuPages = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = new Uri(NavManager.Uri);
+
+        // Eğer domain içinde 'sinavkurs' GEÇMİYORSA -> Admin Panelidir
+        if (!uri.Host.Contains("sinavkurs"))
+        {
+            IsAdminPanel = true;
+            isLoaded = true;
+        }
+        else
+        {
+            // Müşteri Sitesi Mantığı
+            try
+            {
+                currentTenant = await DbContext.Tenants.FirstOrDefaultAsync(t => t.Domain == uri.Host);
+                if (currentTenant != null)
+                {
+                    menuPages = await DbContext.Pages
+                        .IgnoreQueryFilters()
+                        .Where(p => p.TenantId == currentTenant.Id && p.IsPublished)
+                        .OrderBy(p => p.Order)
+                        .ToListAsync();
+                }
+            }
+            catch (Exception ex) { Console.WriteLine("Layout Hatası: " + ex.Message); }
+            finally { isLoaded = true; }
+        }
+    }
+}

@@ -1,6 +1,17 @@
-﻿<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+﻿<Router AppAssembly="@typeof(Program).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        @* 1. ÖNCELİK: Tanımlı Sayfalar (Home, Admin vb.) *@
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
+
+    <NotFound>
+        @* 2. ÖNCELİK: Tanımsız Adresler (404) *@
+        @* Eğer sayfa bulunamazsa, hemen hata verme. Bizim DynamicPage'i çağır *@
+
+        <LayoutView Layout="@typeof(Layout.MainLayout)">
+            <CoreBuilder.Components.Pages.DynamicPage />
+        </LayoutView>
+
+    </NotFound>
 </Router>

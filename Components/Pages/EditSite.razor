@@ -4,7 +4,7 @@
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Hosting
 @using System.IO
-@inject ApplicationDbContext DbContext
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject NavigationManager NavManager
 @inject IWebHostEnvironment WebEnvironment
 
@@ -56,7 +56,18 @@ else
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold">Domain</label>
-                            <InputText class="form-control bg-light" @bind-Value="tenant.Domain" readonly />
+                            <InputText class="form-control" @bind-Value="tenant.Domain" />
+                            <small class="text-muted">Örn: localhost:7156 veya sinavkurs.com</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Kategori</label>
+                            <InputSelect class="form-select" @bind-Value="tenant.Category">
+                                <option value="">Seçiniz...</option>
+                                <option value="Egitim">Eğitim / Kurs</option>
+                                <option value="Kurumsal">Kurumsal</option>
+                                <option value="Blog">Blog / Kişisel</option>
+                                <option value="Ticaret">E-Ticaret</option>
+                            </InputSelect>
                         </div>
                         <div class="form-check form-switch">
                             <InputCheckbox class="form-check-input" @bind-Value="tenant.IsActive" id="siteAktif" />
@@ -97,7 +108,6 @@ else
 
                                     <div class="mb-4 pt-3 border-top">
                                         <label class="form-label fw-bold small text-muted">GÖRÜNÜM</label>
-
                                         <div class="d-flex gap-3 mb-3 bg-light p-2 rounded border">
                                             <div class="form-check form-switch">
                                                 <InputCheckbox class="form-check-input" @bind-Value="tenant.ThemeSettings.ShowLogo" id="chkLogo" />
@@ -129,7 +139,7 @@ else
                                             @if (isUploading)
                                             {
                                                 <div class="text-primary small mt-1">
-                                                    <span class="spinner-border spinner-border-sm me-1"></span> Yükleniyor...
+                                                    <span class="spinner-border spinner-border-sm me-1"></span> @uploadStatus
                                                 </div>
                                             }
                                             else if (!string.IsNullOrEmpty(uploadError))
@@ -216,13 +226,14 @@ else
     {
         try
         {
-            // Veritabanı filtresini kapatarak hatayı önlüyoruz
-            tenant = await DbContext.Tenants
+            using var context = DbFactory.CreateDbContext();
+
+            tenant = await context.Tenants
                 .IgnoreQueryFilters()
                 .Include(t => t.ThemeSettings)
                 .FirstOrDefaultAsync(t => t.Id == Id);
 
-            // ThemeSettings yoksa oluştur
+            // ThemeSettings yoksa oluştur ve kaydet
             if (tenant != null && tenant.ThemeSettings == null)
             {
                 tenant.ThemeSettings = new ThemeSettings
@@ -237,8 +248,8 @@ else
                     ShowLogo = true,
                     ShowSiteName = true
                 };
-                DbContext.ThemeSettings.Add(tenant.ThemeSettings);
-                await DbContext.SaveChangesAsync();
+                context.ThemeSettings.Add(tenant.ThemeSettings);
+                await context.SaveChangesAsync();
             }
         }
         catch (Exception ex)
@@ -255,62 +266,86 @@ else
     {
         if (tenant?.ThemeSettings != null)
         {
-            tenant.ThemeSettings.LogoUrl = null;
-            DbContext.Tenants.Update(tenant);
-            await DbContext.SaveChangesAsync();
-            uploadStatus = "Logo silindi.";
+            using var context = DbFactory.CreateDbContext();
+
+            var currentSettings = await context.ThemeSettings
+                .FirstOrDefaultAsync(x => x.Id == tenant.ThemeSettings.Id);
+
+            if (currentSettings != null)
+            {
+                currentSettings.LogoUrl = null;
+                await context.SaveChangesAsync();
+
+                tenant.ThemeSettings.LogoUrl = null;
+                uploadStatus = "Logo silindi.";
+            }
         }
     }
 
     private async Task UploadLogo(InputFileChangeEventArgs e)
     {
+        // 1. Durumu güncelle ve UI'ı yenile (Kullanıcı "Yükleniyor" görsün)
         isUploading = true;
         uploadError = "";
-        uploadStatus = "";
+        uploadStatus = "Yükleniyor...";
+        await InvokeAsync(StateHasChanged);
+
+        // 2. KRİTİK NOKTA: Ana iş parçacığını serbest bırakmak için kısa bir gecikme.
+        // Bu, SignalR bağlantısının "kopmasını" (Rejoining) %90 engeller.
+        await Task.Delay(1);
 
         try
         {
             var file = e.File;
-            long maxFileSize = 5 * 1024 * 1024; // 5 MB
+            long maxFileSize = 10 * 1024 * 1024; // 10 MB Limit
 
             if (file.Size > maxFileSize)
             {
-                uploadError = "Dosya çok büyük! (Max 5MB)";
+                uploadError = "Dosya çok büyük! (Max 10MB)";
                 return;
             }
 
-            // wwwroot klasörünü bul veya oluştur
             var webRoot = WebEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
             var uploadPath = Path.Combine(webRoot, "uploads");
+
             if (!Directory.Exists(uploadPath)) Directory.CreateDirectory(uploadPath);
 
             var fileName = $"logo-{tenant.Id}-{DateTime.Now.Ticks}{Path.GetExtension(file.Name)}";
             var filePath = Path.Combine(uploadPath, fileName);
 
-            // GÜVENLİ YÜKLEME
+            // 3. Dosyayı Diske Yaz (RAM'i şişirmeyen yöntem)
             using (var stream = file.OpenReadStream(maxAllowedSize: maxFileSize))
             {
-                using (var ms = new MemoryStream())
+                using (var fs = new FileStream(filePath, FileMode.Create))
                 {
-                    await stream.CopyToAsync(ms);
-                    await File.WriteAllBytesAsync(filePath, ms.ToArray());
+                    await stream.CopyToAsync(fs);
                 }
             }
 
-            // Anında kaydet
-            tenant.ThemeSettings.LogoUrl = $"/uploads/{fileName}";
-            DbContext.Tenants.Update(tenant);
-            await DbContext.SaveChangesAsync();
+            // 4. Veritabanını Güncelle (Factory ile güvenli bağlantı)
+            using var context = DbFactory.CreateDbContext();
+            var settingsToUpdate = await context.ThemeSettings
+                .FirstOrDefaultAsync(ts => ts.Id == tenant.ThemeSettings.Id);
 
-            uploadStatus = "✔ Logo başarıyla kaydedildi!";
+            if (settingsToUpdate != null)
+            {
+                settingsToUpdate.LogoUrl = $"/uploads/{fileName}";
+                await context.SaveChangesAsync();
+
+                // UI'daki resmi anlık güncelle
+                tenant.ThemeSettings.LogoUrl = $"/uploads/{fileName}";
+                uploadStatus = "✔ Başarıyla yüklendi!";
+            }
         }
         catch (Exception ex)
         {
             uploadError = "Hata: " + ex.Message;
+            Console.WriteLine(ex.Message);
         }
         finally
         {
             isUploading = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -318,8 +353,9 @@ else
     {
         if (tenant != null)
         {
-            DbContext.Tenants.Update(tenant);
-            await DbContext.SaveChangesAsync();
+            using var context = DbFactory.CreateDbContext();
+            context.Tenants.Update(tenant);
+            await context.SaveChangesAsync();
             NavManager.NavigateTo("/sites");
         }
     }

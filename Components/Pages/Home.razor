@@ -1,7 +1,118 @@
 ﻿@page "/"
+@using Microsoft.EntityFrameworkCore
+@using CoreBuilder.Data
+@using CoreBuilder.Entities
+@using System.Text.Json
+@inject NavigationManager NavManager
+@inject ApplicationDbContext DbContext
 
-<PageTitle>Home</PageTitle>
+<PageTitle>@pageTitle</PageTitle>
 
-<h1>Hello, world!</h1>
+@if (currentTenant != null)
+{
+    @if (pageData != null)
+    {
+        // --- 1. SLIDER VARSA GÖSTER ---
+        @if (pageData.HasSlider && pageData.Sliders != null && pageData.Sliders.Any())
+        {
+            <div id="homeCarousel" class="carousel slide mb-4" data-bs-ride="carousel">
+                <div class="carousel-inner">
+                    @for (int i = 0; i < pageData.Sliders.Count; i++)
+                    {
+                        var slider = pageData.Sliders[i];
+                        <div class="carousel-item @(i == 0 ? "active" : "")">
+                            @* Resim yolu: Admin panelinden yüklenen resim *@
+                            <img src="@slider.ImageUrl" class="d-block w-100" style="height: 400px; object-fit: cover;" alt="@slider.Title">
+                            @if (!string.IsNullOrEmpty(slider.Title))
+                            {
+                                <div class="carousel-caption d-none d-md-block">
+                                    <h5>@slider.Title</h5>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                <button class="carousel-control-prev" type="button" data-bs-target="#homeCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#homeCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                </button>
+            </div>
+        }
 
-Welcome to your new app.
+        // --- 2. HTML İÇERİK VARSA GÖSTER ---
+        <div class="container site-content py-4">
+            @* DİKKAT: JSON içinde Türkçe karakterler \u0130 gibi gelebilir. 
+                 Burada MarkupString ile bastığımızda tarayıcı bunu çözer.
+             *@
+            @((MarkupString)(pageData.HtmlContent ?? ""))
+        </div>
+    }
+    else
+    {
+        // İçerik henüz yüklenmediyse veya boşsa
+        <div class="container mt-5 text-center">
+            <div class="p-5 bg-light rounded-3">
+                <h3>Hoşgeldiniz!</h3>
+                <p>İçerik hazırlanıyor...</p>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [CascadingParameter]
+    public Tenant? currentTenant { get; set; }
+
+    private PageContentDto? pageData; // JSON verisini bu modele çevireceğiz
+    private string pageTitle = "Yükleniyor...";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var uri = new Uri(NavManager.Uri);
+        if (!uri.Host.Contains("sinavkurs")) return;
+
+        if (currentTenant != null)
+        {
+            pageTitle = currentTenant.SiteName;
+            try
+            {
+                // Anasayfayı bul
+                var homePage = await DbContext.Pages
+                    .IgnoreQueryFilters()
+                    .Where(p => p.TenantId == currentTenant.Id)
+                    .Where(p => p.Slug == "/" || p.Slug == "home")
+                    .FirstOrDefaultAsync();
+
+                if (homePage != null && !string.IsNullOrEmpty(homePage.ContentJson))
+                {
+                    // JSON'u Parçala (Deserialize)
+                    // Büyük/küçük harf duyarlılığını kapatıyoruz
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    pageData = JsonSerializer.Deserialize<PageContentDto>(homePage.ContentJson, options);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("JSON Hatası: " + ex.Message);
+            }
+        }
+    }
+
+    // --- JSON VERİSİNİ KARŞILAYACAK MODEL ---
+    public class PageContentDto
+    {
+        public string? PageType { get; set; }
+        public bool HasSlider { get; set; }
+        public string? HtmlContent { get; set; }
+        public List<SliderDto>? Sliders { get; set; }
+    }
+
+    public class SliderDto
+    {
+        public string? ImageUrl { get; set; }
+        public string? Title { get; set; }
+        public string? LinkUrl { get; set; }
+    }
+}

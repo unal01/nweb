@@ -1,0 +1,172 @@
+﻿@using Microsoft.EntityFrameworkCore
+@using CoreBuilder.Data
+@using CoreBuilder.Entities
+@using System.Text.Json
+@inject NavigationManager NavManager
+@inject ApplicationDbContext DbContext
+
+@* DİKKAT: @page YOK! BU SAYFAYI ARTIK ROUTES.RAZOR ÇAĞIRACAK *@
+
+<PageTitle>@(pageData?.Title ?? "Sayfa Bulunamadı")</PageTitle>
+
+@if (isSystemFile)
+{
+    @* CSS, JS veya Admin dosyası ise 404 ver (Temayı bozma) *@
+    <div class="text-center mt-5 p-5">
+        <h1 class="display-1 text-muted">404</h1>
+        <p>Kaynak bulunamadı.</p>
+    </div>
+}
+else if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center vh-100">
+        <div class="spinner-border text-primary"></div>
+    </div>
+}
+else if (pageData != null)
+{
+    @* --- İÇERİK VARSA GÖSTER --- *@
+
+    // 1. SLIDER
+    if (pageData.HasSlider && pageData.Sliders != null && pageData.Sliders.Any())
+    {
+        <div id="dynamicCarousel" class="carousel slide mb-4" data-bs-ride="carousel">
+            <div class="carousel-inner">
+                @for (int i = 0; i < pageData.Sliders.Count; i++)
+                {
+                    <div class="carousel-item @(i == 0 ? "active" : "")">
+                        <img src="@pageData.Sliders[i].ImageUrl" class="d-block w-100" style="height: 400px; object-fit: cover;">
+                        @if (!string.IsNullOrEmpty(pageData.Sliders[i].Title))
+                        {
+                            <div class="carousel-caption d-none d-md-block"><h5>@pageData.Sliders[i].Title</h5></div>
+                        }
+                    </div>
+                }
+            </div>
+            <button class="carousel-control-prev" type="button" data-bs-target="#dynamicCarousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>
+            <button class="carousel-control-next" type="button" data-bs-target="#dynamicCarousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>
+        </div>
+    }
+
+    // 2. İLETİŞİM VEYA HTML
+    if (pageData.PageType == "Contact")
+    {
+        <div class="container py-5">
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <h2 class="fw-bold mb-4">İletişim Bilgileri</h2>
+                    @if (!string.IsNullOrEmpty(pageData.Contact.AddressText))
+                    {
+                        <div class="d-flex mb-3"><i class="bi bi-geo-alt-fill text-primary fs-4 me-3"></i><div><h6 class="fw-bold mb-0">Adres</h6><p class="text-muted mb-0">@pageData.Contact.AddressText @pageData.Contact.District / @pageData.Contact.City</p></div></div>
+                    }
+                    @if (!string.IsNullOrEmpty(pageData.Contact.Phone1))
+                    {
+                        <div class="d-flex mb-3"><i class="bi bi-telephone-fill text-primary fs-4 me-3"></i><div><h6 class="fw-bold mb-0">Telefon</h6><a href="tel:@pageData.Contact.Phone1" class="text-decoration-none text-dark">@pageData.Contact.Phone1</a></div></div>
+                    }
+                </div>
+                <div class="col-lg-6">
+                    @if (!string.IsNullOrEmpty(pageData.Contact.MapEmbedCode))
+                    {
+                        <div class="ratio ratio-16x9 rounded shadow-sm overflow-hidden">@((MarkupString)pageData.Contact.MapEmbedCode)</div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="container site-content py-4">@((MarkupString)(pageData.HtmlContent ?? ""))</div>
+    }
+}
+else
+{
+    @* --- VERİTABANINDA YOKSA --- *@
+    <div class="container mt-5 text-center">
+        <div class="alert alert-light py-5">
+            <h1 class="display-1 fw-bold text-muted">404</h1>
+            <h3>Sayfa Bulunamadı</h3>
+            <p>Aradığınız sayfa sistemde kayıtlı değil.</p>
+            <a href="/" class="btn btn-primary mt-3">Anasayfaya Dön</a>
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter] public Tenant? currentTenant { get; set; }
+
+    private PageContentDto? pageData;
+    private bool isLoading = true;
+    private bool isSystemFile = false;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var uri = new Uri(NavManager.Uri);
+        string path = uri.AbsolutePath; // Örn: /deneme
+
+        // 1. KORUMA: Dosya uzantısı varsa veya Admin paneli ise çalışma
+        if (path.Contains(".") || path.StartsWith("/admin") || path.StartsWith("/_blazor") || !uri.Host.Contains("sinavkurs"))
+        {
+            isSystemFile = true;
+            isLoading = false;
+            return;
+        }
+
+        isLoading = true;
+        pageData = null;
+
+        // Tenant (Site) bilgisi MainLayout'tan gelmeli
+        if (currentTenant == null)
+        {
+            // Gelmediyse acil durum: kendimiz bulalım
+            try { currentTenant = await DbContext.Tenants.FirstOrDefaultAsync(t => t.Domain == uri.Host); } catch { }
+        }
+
+        if (currentTenant != null)
+        {
+            try
+            {
+                // URL'deki / işaretini temizle veya olduğu gibi kullan
+                string slugWithSlash = path.StartsWith("/") ? path : "/" + path;
+                string slugWithoutSlash = path.Trim('/');
+
+                // Veritabanında ara (/deneme veya deneme)
+                var currentPage = await DbContext.Pages
+                    .IgnoreQueryFilters()
+                    .Where(p => p.TenantId == currentTenant.Id)
+                    .Where(p => p.Slug == slugWithSlash || p.Slug == slugWithoutSlash)
+                    .FirstOrDefaultAsync();
+
+                if (currentPage != null && !string.IsNullOrEmpty(currentPage.ContentJson))
+                {
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    pageData = JsonSerializer.Deserialize<PageContentDto>(currentPage.ContentJson, options);
+                    if (pageData != null) pageData.Title = currentPage.Title;
+                }
+            }
+            catch (Exception ex) { Console.WriteLine("Hata: " + ex.Message); }
+        }
+
+        isLoading = false;
+    }
+
+    public class PageContentDto
+    {
+        public string Title { get; set; } = "";
+        public string PageType { get; set; } = "Standard";
+        public bool HasSlider { get; set; }
+        public List<SliderDto> Sliders { get; set; } = new();
+        public string HtmlContent { get; set; } = "";
+        public ContactInfo Contact { get; set; } = new();
+    }
+    public class ContactInfo
+    {
+        public string PhoneLabel1 { get; set; }
+        public string Phone1 { get; set; }
+        public string AddressText { get; set; }
+        public string City { get; set; }
+        public string District { get; set; }
+        public string Email1 { get; set; }
+        public string MapEmbedCode { get; set; }
+    }
+    public class SliderDto { public string ImageUrl { get; set; } public string Title { get; set; } }
+}

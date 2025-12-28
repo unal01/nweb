@@ -1,0 +1,126 @@
+﻿@page "/system-check"
+@using CoreBuilder.Services
+@using CoreBuilder.Data
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject ITenantService TenantService
+@inject IConfiguration Config
+
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white">
+            <h3><i class="fa-solid fa-stethoscope me-2"></i> Sistem Sağlık Kontrolü</h3>
+        </div>
+        <div class="card-body">
+
+            <button class="btn btn-primary mb-4" @onclick="RunDiagnostics">
+                <i class="fa-solid fa-play me-2"></i> Testi Başlat
+            </button>
+
+            @if (!string.IsNullOrEmpty(statusMessage))
+            {
+                <div class="alert @statusClass">
+                    <h5 class="alert-heading">Sonuç:</h5>
+                    <pre style="white-space: pre-wrap;">@statusMessage</pre>
+                </div>
+            }
+
+            <hr />
+            <h5>Test Adımları:</h5>
+            <ul class="list-group">
+                <li class="list-group-item">
+                    <strong>1. Servis Kontrolü:</strong>
+                    @if (step1)
+                    {
+                        <span class="badge bg-success">BAŞARILI</span>
+                    }
+                    else
+                    {
+
+                        <span class="badge bg-secondary">Bekliyor...</span>
+                    }
+                </li>
+                <li class="list-group-item">
+                    <strong>2. Veritabanı Bağlantısı:</strong>
+                    @if (step2)
+                    {
+                        <span class="badge bg-success">BAŞARILI</span>
+                    }
+                    else
+                    {
+
+                        <span class="badge bg-secondary">Bekliyor...</span>
+                    }
+                </li>
+                <li class="list-group-item">
+                    <strong>3. Tablo Okuma (Tenants):</strong>
+                    @if (step3)
+                    {
+                        <span class="badge bg-success">BAŞARILI</span>
+                    }
+                    else
+                    {
+
+                        <span class="badge bg-secondary">Bekliyor...</span>
+                    }
+                </li>
+            </ul>
+
+        </div>
+    </div>
+</div>
+
+@code {
+    private string statusMessage = "";
+    private string statusClass = "alert-secondary";
+    private bool step1 = false;
+    private bool step2 = false;
+    private bool step3 = false;
+
+    private async Task RunDiagnostics()
+    {
+        statusMessage = "Test başlatılıyor...";
+        statusClass = "alert-info";
+        step1 = step2 = step3 = false;
+
+        try
+        {
+            // ADIM 1: Servis Çağırma
+            var domain = TenantService.GetCurrentDomain();
+            statusMessage += $"\n✔ Servis Çalışıyor. Domain: {domain}";
+            step1 = true;
+            StateHasChanged();
+            await Task.Delay(500);
+
+            // ADIM 2: Fabrika ile Context Üretme
+            using var context = await DbFactory.CreateDbContextAsync();
+            statusMessage += "\n✔ DbContext Başarıyla Üretildi (Factory Çalışıyor).";
+
+            // Bağlantı Testi
+            if (await context.Database.CanConnectAsync())
+            {
+                statusMessage += "\n✔ Veritabanına Bağlanıldı (SQL Erişilebilir).";
+                step2 = true;
+            }
+            else
+            {
+                throw new Exception("Veritabanına fiziksel bağlantı sağlanamadı! Connection String'i kontrol et.");
+            }
+            StateHasChanged();
+            await Task.Delay(500);
+
+            // ADIM 3: Veri Çekme
+            var count = await context.Tenants.IgnoreQueryFilters().CountAsync();
+            statusMessage += $"\n✔ Tablo Okundu. Toplam Site Sayısı: {count}";
+            step3 = true;
+
+            statusMessage += "\n\n✅ TEST BAŞARIYLA TAMAMLANDI! SİSTEM SORUNSUZ.";
+            statusClass = "alert-success";
+        }
+        catch (Exception ex)
+        {
+            statusMessage += $"\n\n❌ HATA OLUŞTU:\n{ex.Message}\n\nDetay:\n{ex.InnerException?.Message}";
+            statusClass = "alert-danger";
+        }
+    }
+}

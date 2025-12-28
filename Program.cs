@@ -1,34 +1,44 @@
-using CoreBuilder.Components;
+﻿using CoreBuilder.Components;
 using CoreBuilder.Data;
 using CoreBuilder.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Veritaban� ve Servisler
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// --- 1. VERİTABANI AYARI (ZIRHLI VERSİYON) ---
+// EnableRetryOnFailure: Bağlantı anlık koparsa sistem çökmez, otomatik tekrar dener.
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"), sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null);
+    }));
 
+// Eski kodların çalışması için (Geriye uyumluluk)
+builder.Services.AddScoped(p =>
+    p.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
+
+// Diğer Servisler
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ITenantService, TenantService>();
 
-// ... (�nceki kodlar)
+// --- KRİTİK: BURASI KESİNLİKLE 'AddTransient' OLMALI ---
+builder.Services.AddTransient<ITenantService, TenantService>();
 
-// 2. Blazor ve SignalR Ayarlar� (G��LEND�R�LM�� AYARLAR)
+// --- 2. BLAZOR AYARLARI ---
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents()
+    // 👇 BURAYA DİKKAT: Hata detaylarını açtık. Artık sarı çubuk yerine gerçek hatayı göreceğiz.
+    .AddInteractiveServerComponents(options => options.DetailedErrors = true)
     .AddHubOptions(options =>
     {
-        options.MaximumReceiveMessageSize = 64 * 1024 * 1024; // 64 MB Limit
-        options.ClientTimeoutInterval = TimeSpan.FromMinutes(2); // 2 Dakika Zaman A��m�
-        options.KeepAliveInterval = TimeSpan.FromSeconds(15); // Ba�lant�y� canl� tut
-    });
+        // Dosya yüklerken "Rejoining" hatasını engellemek için limiti artırdık (100 MB).
+        options.MaximumReceiveMessageSize = 100 * 1024 * 1024;
 
-// ... (Kalan kodlar ayn�)
+        options.ClientTimeoutInterval = TimeSpan.FromMinutes(2);
+        options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    });
 
 var app = builder.Build();
 
-// Standart Ayarlar
+// --- 3. UYGULAMA AKIŞI ---
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);

@@ -1,24 +1,18 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using CoreBuilder.Entities;
-using CoreBuilder.Services;
 
 namespace CoreBuilder.Data
 {
     public class ApplicationDbContext : DbContext
     {
-        private readonly ITenantService _tenantService;
-        private readonly int? _currentTenantId;
+        // Context instance'ındaki tenant id; bileşen/servis tarafından atanacak
+        public int? CurrentTenantId { get; set; }
 
-        // Constructor: Servisi içeri alıyoruz
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, ITenantService tenantService)
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
         {
-            _tenantService = tenantService;         
-            // O anki site ID'sini servisten öğreniyoruz
-            _currentTenantId = _tenantService.GetCurrentTenantId();
         }
 
-        // Tablolarımız
         public DbSet<Tenant> Tenants { get; set; }
         public DbSet<ThemeSettings> ThemeSettings { get; set; }
         public DbSet<Page> Pages { get; set; }
@@ -28,16 +22,20 @@ namespace CoreBuilder.Data
         {
             base.OnModelCreating(builder);
 
-            // --- GLOBAL QUERY FILTER (SİHİRLİ FİLTRE) ---
-            // Her sorguya otomatik olarak "Where TenantId = X" ekler.
-            // Böylece bir sitenin verisi diğerine asla karışmaz.
-            builder.Entity<Page>().HasQueryFilter(p => p.TenantId == _currentTenantId);
-            builder.Entity<ThemeSettings>().HasQueryFilter(t => t.TenantId == _currentTenantId);
-            builder.Entity<ContactInfo>().HasQueryFilter(c => c.TenantId == _currentTenantId);
+            // Global query filter: context instance'ındaki CurrentTenantId kullanılır.
+            builder.Entity<Page>().HasQueryFilter(p =>
+                !EF.Property<int?>(this, nameof(CurrentTenantId)).HasValue
+                || p.TenantId == EF.Property<int?>(this, nameof(CurrentTenantId)).Value);
 
-            // --- İLİŞKİ AYARLARI ---
+            builder.Entity<ThemeSettings>().HasQueryFilter(t =>
+                !EF.Property<int?>(this, nameof(CurrentTenantId)).HasValue
+                || t.TenantId == EF.Property<int?>(this, nameof(CurrentTenantId)).Value);
 
-            // Tenant silinirse ayarları da silinsin (Cascade Delete)
+            builder.Entity<ContactInfo>().HasQueryFilter(c =>
+                !EF.Property<int?>(this, nameof(CurrentTenantId)).HasValue
+                || c.TenantId == EF.Property<int?>(this, nameof(CurrentTenantId)).Value);
+
+            // --- İlişki ayarları ---
             builder.Entity<Tenant>()
                 .HasOne(t => t.ThemeSettings)
                 .WithOne()
@@ -52,7 +50,7 @@ namespace CoreBuilder.Data
 
             builder.Entity<Tenant>()
                 .HasMany(t => t.Pages)
-                .WithOne(p => p.Tenant) // explicit dependent navigation to avoid duplicate FK (TenantId1)
+                .WithOne(p => p.Tenant)
                 .HasForeignKey(p => p.TenantId)
                 .OnDelete(DeleteBehavior.Cascade);
         }

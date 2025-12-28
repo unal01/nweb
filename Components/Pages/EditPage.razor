@@ -1,128 +1,486 @@
-﻿@page "/pages/edit/{Id:int}"
+﻿@page "/editpage/{PageId:int}/{SiteId:int}"
 @using CoreBuilder.Entities
 @using CoreBuilder.Data
 @using Microsoft.EntityFrameworkCore
-@inject ApplicationDbContext DbContext
+@using Microsoft.AspNetCore.Hosting
+@using System.IO
+@using System.Text.Json
+@using System.Text.RegularExpressions
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject NavigationManager NavManager
+@inject IWebHostEnvironment WebEnvironment
+@rendermode InteractiveServer
 
-<div class="row justify-content-center">
-    <div class="col-md-9">
-        <div class="card shadow-sm border-0">
-            <div class="card-header bg-white py-3 border-bottom">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 text-primary">
-                        <i class="fa-solid fa-pen-to-square me-2"></i> Sayfayı Düzenle
-                    </h5>
-                    <button class="btn btn-sm btn-outline-secondary" @onclick="GoBack">
-                        <i class="fa-solid fa-arrow-left me-1"></i> Listeye Dön
-                    </button>
-                </div>
-            </div>
-
-            <div class="card-body p-4">
-                @if (pageModel == null)
-                {
-                    <div class="text-center py-5">
-                        <div class="spinner-border text-primary"></div>
-                        <p class="mt-2 text-muted">Sayfa bilgileri yükleniyor...</p>
-                    </div>
-                }
-                else
-                {
-                    <EditForm Model="@pageModel" OnValidSubmit="HandleSubmit">
-                        <DataAnnotationsValidator />
-
-                        <div class="alert alert-light border mb-4">
-                            <i class="fa-solid fa-circle-info text-info me-2"></i>
-                            Bu sayfa <strong>@(pageModel.Tenant?.SiteName)</strong> sitesine aittir.
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Sayfa Başlığı</label>
-                            <InputText class="form-control form-control-lg" @bind-Value="pageModel.Title" placeholder="Örn: Hakkımızda" />
-                            <ValidationMessage For="@(() => pageModel.Title)" />
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold small text-muted">URL Yolu (Slug)</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light">/</span>
-                                    <InputText class="form-control" @bind-Value="pageModel.Slug" />
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold small text-muted">Sıralama</label>
-                                <InputNumber class="form-control" @bind-Value="pageModel.Order" />
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">İçerik (HTML)</label>
-                            <InputTextArea class="form-control font-monospace" @bind-Value="pageModel.ContentJson" rows="10"
-                                           style="font-size: 0.9rem; background-color: #f8f9fa;" />
-                            <div class="form-text">Buraya HTML formatında içerik girebilirsiniz.</div>
-                        </div>
-
-                        <div class="card bg-light border-0 mb-4">
-                            <div class="card-body">
-                                <div class="form-check form-switch">
-                                    <InputCheckbox class="form-check-input" @bind-Value="pageModel.IsPublished" id="publishCheck" style="transform: scale(1.2);" />
-                                    <label class="form-check-label fw-bold ms-2" for="publishCheck">
-                                        Sayfa Yayında Olsun
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="fa-solid fa-floppy-disk me-2"></i> Değişiklikleri Kaydet
-                            </button>
-                        </div>
-
-                    </EditForm>
-                }
-            </div>
+<div class="container-fluid pb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4 sticky-top bg-white py-3 border-bottom" style="z-index: 1000;">
+        <div>
+            <h3 class="fw-bold text-dark mb-0">
+                <i class="fa-solid fa-wand-magic-sparkles text-primary me-2"></i>
+                @(pageModel.Id == 0 ? "Yeni Sayfa Oluştur" : "Sayfayı Düzenle")
+            </h3>
+            <span class="text-muted small">
+                @(string.IsNullOrEmpty(pageModel.Title) ? "Başlık bekleniyor..." : pageModel.Title)
+            </span>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-light border shadow-sm" @onclick="GoBack">
+                <i class="fa-solid fa-arrow-left me-2"></i>Geri
+            </button>
+            <button class="btn btn-primary shadow-sm px-4" @onclick="HandleSubmit">
+                <i class="fa-solid fa-save me-2"></i>Kaydet & Yayınla
+            </button>
         </div>
     </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2 text-muted">Sayfa verileri hazırlanıyor...</p>
+        </div>
+    }
+    else
+    {
+        <EditForm Model="@pageModel" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            <div class="row">
+                <div class="col-lg-3">
+                    <div class="card shadow-sm border-0 mb-4 sticky-top" style="top: 100px;">
+                        <div class="card-header bg-light fw-bold text-uppercase small ls-1">
+                            <i class="fa-solid fa-gear me-2"></i>Genel Ayarlar
+                        </div>
+                        <div class="card-body">
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small">Sayfa Türü</label>
+                                <InputSelect class="form-select" @bind-Value="pageData.PageType">
+                                    <option value="Standard">Standart İçerik Sayfası</option>
+                                    <option value="Contact">İletişim Sayfası</option>
+                                </InputSelect>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small">Sayfa Başlığı</label>
+                                @* DÜZELTME: ValueChanged olayı ile yazarken link üretmesini sağladık *@
+                                <InputText class="form-control"
+                                           Value="@pageModel.Title"
+                                           ValueExpression="@(() => pageModel.Title)"
+                                           ValueChanged="@OnTitleChanged"
+                                           placeholder="Örn: Hakkımızda" />
+                                <ValidationMessage For="@(() => pageModel.Title)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small">Link (Slug)</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light">/</span>
+                                    <InputText class="form-control" @bind-Value="pageModel.Slug" placeholder="Otomatik oluşur" />
+                                </div>
+                                <div class="form-text" style="font-size: 0.75rem;">Boş bırakırsanız başlıktan otomatik üretilir.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small">Menü Konumu</label>
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="menuType" id="mainMenu"
+                                           checked="@(menuSelection == 0)" @onchange="@(() => menuSelection = 0)">
+                                    <label class="btn btn-outline-primary" for="mainMenu">Ana Menü</label>
+
+                                    <input type="radio" class="btn-check" name="menuType" id="subMenu"
+                                           checked="@(menuSelection == 1)" @onchange="@(() => menuSelection = 1)">
+                                    <label class="btn btn-outline-primary" for="subMenu">Alt Menü</label>
+                                </div>
+
+                                @if (menuSelection == 1)
+                                {
+                                    <div class="mt-2 animate__animated animate__fadeIn p-2 bg-light border rounded">
+                                        <label class="small text-muted fw-bold">Hangi sayfanın altında?</label>
+                                        @if (parentPages != null && parentPages.Any())
+                                        {
+                                            <InputSelect class="form-select form-select-sm" @bind-Value="pageModel.ParentId">
+                                                <option value="">-- Bir Ana Sayfa Seçin --</option>
+                                                @foreach (var p in parentPages)
+                                                {
+                                                    <option value="@p.Id">@p.Title</option>
+                                                }
+                                            </InputSelect>
+                                        }
+                                        else
+                                        {
+                                            <div class="text-danger small mt-1">Ana menü olabilecek sayfa yok.</div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="form-check form-switch p-3 bg-light rounded border">
+                                <InputCheckbox class="form-check-input" @bind-Value="pageModel.IsPublished" id="pub" />
+                                <label class="form-check-label fw-bold" for="pub">Sayfayı Yayınla</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-9">
+
+                    @if (pageData.PageType == "Contact")
+                    {
+                        @* --- İLETİŞİM FORMU AYNI KALDI --- *@
+                        <div class="alert alert-primary shadow-sm mb-4">
+                            <i class="fa-solid fa-info-circle me-2"></i>
+                            <strong>İletişim Modu:</strong> Sadece doldurduğunuz alanlar sitede yayınlanacaktır.
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card shadow-sm border-0 mb-4 h-100">
+                                    <div class="card-header bg-primary text-white fw-bold"><i class="fa-solid fa-phone me-2"></i>İletişim Bilgileri</div>
+                                    <div class="card-body">
+                                        <h6 class="small fw-bold text-muted mb-2">Telefon Numaraları</h6>
+                                        <div class="mb-3">
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text bg-light">Etiket</span>
+                                                <input type="text" class="form-control" @bind="pageData.Contact.PhoneLabel1" placeholder="Örn: Ofis" />
+                                                <input type="text" class="form-control" @bind="pageData.Contact.Phone1" placeholder="+90 555..." />
+                                            </div>
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text bg-light">Etiket</span>
+                                                <input type="text" class="form-control" @bind="pageData.Contact.PhoneLabel2" placeholder="Örn: WhatsApp" />
+                                                <input type="text" class="form-control" @bind="pageData.Contact.Phone2" placeholder="+90 555..." />
+                                            </div>
+                                        </div>
+                                        <hr />
+                                        <h6 class="small fw-bold text-muted mb-2">E-Posta Adresleri</h6>
+                                        <div class="input-group mb-2">
+                                            <span class="input-group-text bg-light"><i class="fa-solid fa-envelope"></i></span>
+                                            <input type="text" class="form-control" @bind="pageData.Contact.Email1" placeholder="info@site.com" />
+                                        </div>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i class="fa-solid fa-envelope"></i></span>
+                                            <input type="text" class="form-control" @bind="pageData.Contact.Email2" placeholder="ik@site.com" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="card shadow-sm border-0 mb-4 h-100">
+                                    <div class="card-header bg-danger text-white fw-bold"><i class="fa-solid fa-map-location-dot me-2"></i>Google Harita</div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label class="small fw-bold">Google Maps Embed Kodu</label>
+                                            <textarea class="form-control small text-muted" rows="4" @bind="pageData.Contact.MapEmbedCode" placeholder="<iframe src='...' ...></iframe>"></textarea>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(pageData.Contact.MapEmbedCode))
+                                        {
+                                            <div class="ratio ratio-16x9 border rounded bg-light">
+                                                @((MarkupString)pageData.Contact.MapEmbedCode)
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="ratio ratio-16x9 border rounded bg-light d-flex align-items-center justify-content-center text-muted">
+                                                Harita Önizleme
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="card shadow-sm border-0 mb-4">
+                                    <div class="card-header bg-info text-white fw-bold"><i class="fa-solid fa-location-dot me-2"></i>Adres Detayları</div>
+                                    <div class="card-body">
+                                        <textarea class="form-control mb-2" rows="3" @bind="pageData.Contact.AddressText" placeholder="Açık adres..."></textarea>
+                                        <div class="row g-2">
+                                            <div class="col-6"><input type="text" class="form-control" @bind="pageData.Contact.City" placeholder="İl" /></div>
+                                            <div class="col-6"><input type="text" class="form-control" @bind="pageData.Contact.District" placeholder="İlçe" /></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card shadow-sm border-0 mb-4">
+                                    <div class="card-header bg-warning text-dark fw-bold"><i class="fa-solid fa-clock me-2"></i>Çalışma Saatleri</div>
+                                    <div class="card-body">
+                                        <div class="row g-2">
+                                            <div class="col-6"><label class="small fw-bold">Günler</label><input type="text" class="form-control" @bind="pageData.Contact.WorkingDays" placeholder="Pzt - Cmt" /></div>
+                                            <div class="col-6"><label class="small fw-bold">Saatler</label><input type="text" class="form-control" @bind="pageData.Contact.WorkingHours" placeholder="08:30 - 19:00" /></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="card shadow-sm border-0 mb-4">
+                                    <div class="card-header bg-dark text-white fw-bold"><i class="fa-solid fa-share-nodes me-2"></i>Sosyal Medya</div>
+                                    <div class="card-body">
+                                        <div class="input-group mb-2"><span class="input-group-text text-success"><i class="fa-brands fa-whatsapp"></i></span><input type="text" class="form-control" @bind="pageData.Contact.Whatsapp" placeholder="Tel No" /></div>
+                                        <div class="input-group mb-2"><span class="input-group-text text-danger"><i class="fa-brands fa-instagram"></i></span><input type="text" class="form-control" @bind="pageData.Contact.Instagram" placeholder="kullaniciadi" /></div>
+                                        <div class="input-group mb-2"><span class="input-group-text text-primary"><i class="fa-brands fa-facebook"></i></span><input type="text" class="form-control" @bind="pageData.Contact.Facebook" placeholder="kullaniciadi" /></div>
+                                        <div class="input-group"><span class="input-group-text text-info"><i class="fa-brands fa-twitter"></i></span><input type="text" class="form-control" @bind="pageData.Contact.Twitter" placeholder="kullaniciadi" /></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        @* --- STANDART SAYFA MODÜLLERİ --- *@
+                        <div class="card shadow-sm border-0 mb-4">
+                            <div class="card-body">
+                                <h6 class="fw-bold small text-muted mb-3 text-uppercase">Sayfaya Özellik Ekle</h6>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button type="button" class="btn @(pageData.HasSlider ? "btn-primary" : "btn-outline-secondary")"
+                                            @onclick="() => pageData.HasSlider = !pageData.HasSlider">
+                                        <i class="fa-solid fa-images me-2"></i>Slider
+                                    </button>
+                                    <button type="button" class="btn @(pageData.HasAnnouncements ? "btn-warning" : "btn-outline-secondary")"
+                                            @onclick="() => pageData.HasAnnouncements = !pageData.HasAnnouncements">
+                                        <i class="fa-solid fa-bullhorn me-2"></i>Duyurular
+                                    </button>
+                                    <button type="button" class="btn @(pageData.HasNews ? "btn-info text-white" : "btn-outline-secondary")"
+                                            @onclick="() => pageData.HasNews = !pageData.HasNews">
+                                        <i class="fa-solid fa-newspaper me-2"></i>Haberler
+                                    </button>
+                                    <button type="button" class="btn @(pageData.HasGallery ? "btn-success" : "btn-outline-secondary")"
+                                            @onclick="() => pageData.HasGallery = !pageData.HasGallery">
+                                        <i class="fa-solid fa-photo-film me-2"></i>Medya Galeri
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (pageData.HasSlider)
+                        {
+                            <div class="card shadow-sm border-0 mb-4 border-start border-4 border-primary">
+                                <div class="card-header bg-white"><h6 class="text-primary fw-bold mb-0">Slider</h6></div>
+                                <div class="card-body bg-light">
+                                    <div class="row g-2 mb-3 align-items-end">
+                                        <div class="col-md-4"><label class="small fw-bold">Görsel</label><InputFile OnChange="@(e => UploadFiles(e, "slider"))" class="form-control form-control-sm" /></div>
+                                        <div class="col-md-3"><label class="small fw-bold">Başlık</label><input type="text" class="form-control form-control-sm" @bind="tempSlider.Title" /></div>
+                                        <div class="col-md-3"><label class="small fw-bold">Link</label><input type="text" class="form-control form-control-sm" @bind="tempSlider.LinkUrl" /></div>
+                                        <div class="col-md-2"><button type="button" class="btn btn-sm btn-primary w-100" @onclick="AddSliderItem">Ekle</button></div>
+                                    </div>
+                                    <div class="list-group">
+                                        @foreach (var item in pageData.Sliders)
+                                        {
+                                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                <div class="d-flex align-items-center"><img src="@item.ImageUrl" style="width: 40px; height: 30px; object-fit:cover;" class="me-2" /> @item.Title</div>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => pageData.Sliders.Remove(item)">&times;</button>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @if (pageData.HasNews)
+                        {
+                            <div class="card shadow-sm border-0 mb-4 border-start border-4 border-info">
+                                <div class="card-header bg-white"><h6 class="text-info fw-bold mb-0">Haberler</h6></div>
+                                <div class="card-body bg-light">
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-md-3"><InputFile OnChange="@(e => UploadFiles(e, "news"))" class="form-control form-control-sm" /></div>
+                                        <div class="col-md-4"><input type="text" class="form-control form-control-sm" @bind="tempNews.Title" placeholder="Başlık" /></div>
+                                        <div class="col-md-4"><input type="text" class="form-control form-control-sm" @bind="tempNews.Summary" placeholder="Özet" /></div>
+                                        <div class="col-md-1"><button class="btn btn-sm btn-info text-white w-100" @onclick="AddNewsItem">+</button></div>
+                                    </div>
+                                    <div class="row g-2">
+                                        @foreach (var item in pageData.NewsItems)
+                                        {
+                                            <div class="col-md-6"><div class="border bg-white p-2 rounded d-flex align-items-center justify-content-between"><div class="d-flex align-items-center"><img src="@item.ImageUrl" style="width:40px;height:40px;object-fit:cover" class="me-2 rounded" /> <div><div class="fw-bold small">@item.Title</div><div class="small text-muted">@item.Summary</div></div></div> <button class="btn btn-sm btn-danger p-0 px-1" @onclick="() => pageData.NewsItems.Remove(item)">&times;</button></div></div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="card shadow-sm border-0 mb-5">
+                            <div class="card-header bg-white fw-bold"><i class="fa-solid fa-paragraph me-2"></i>İçerik</div>
+                            <div class="card-body p-0">
+                                <InputTextArea @bind-Value="pageData.HtmlContent" class="form-control border-0" style="min-height: 300px; padding: 20px;" placeholder="Sayfa içeriğini buraya yazın..." />
+                            </div>
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </EditForm>
+    }
 </div>
 
 @code {
-    [Parameter]
-    public int Id { get; set; }
+    [Parameter] public int PageId { get; set; }
+    [Parameter] public int SiteId { get; set; }
 
-    private Page? pageModel;
+    private Page pageModel = new();
+    private PageContentData pageData = new();
+    private List<Page> parentPages = new();
+    private bool isLoading = true;
+    private int menuSelection = 0;
+
+    private SliderItem tempSlider = new();
+    private NewsItem tempNews = new();
+    private AnnouncementItem tempAnnouncement = new();
 
     protected override async Task OnInitializedAsync()
     {
-        // Sayfayı ve bağlı olduğu Site (Tenant) bilgisini çek
-        pageModel = await DbContext.Pages
-            .IgnoreQueryFilters()
-            .Include(p => p.Tenant)
-            .FirstOrDefaultAsync(p => p.Id == Id);
-
-        if (pageModel == null)
+        try
         {
-            // Sayfa bulunamazsa listeye geri at
-            NavManager.NavigateTo("/pages");
+            using var context = DbFactory.CreateDbContext();
+            parentPages = await context.Pages.IgnoreQueryFilters().AsNoTracking()
+                .Where(p => p.TenantId == SiteId && (p.ParentId == null || p.ParentId == 0) && p.Id != PageId).ToListAsync();
+
+            if (PageId != 0)
+            {
+                var existingPage = await context.Pages.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(p => p.Id == PageId);
+                if (existingPage != null)
+                {
+                    pageModel = existingPage;
+                    menuSelection = (pageModel.ParentId == null || pageModel.ParentId == 0) ? 0 : 1;
+                    if (!string.IsNullOrEmpty(pageModel.ContentJson))
+                    {
+                        try { pageData = JsonSerializer.Deserialize<PageContentData>(pageModel.ContentJson) ?? new PageContentData(); }
+                        catch { pageData = new PageContentData(); }
+                    }
+                }
+            }
+            else
+            {
+                pageModel = new Page { TenantId = SiteId, IsPublished = true };
+                pageData = new PageContentData();
+                pageData.PageType = "Standard";
+            }
         }
+        catch (Exception ex) { Console.WriteLine("Init Error: " + ex.Message); }
+        finally { isLoading = false; }
+    }
+
+    // --- DÜZELTME: BAŞLIK YAZILDIKÇA LİNK ÜRETEN FONKSİYON ---
+    private void OnTitleChanged(string value)
+    {
+        pageModel.Title = value;
+        // Eğer link kutusu boşsa veya otomatik üretilmişse güncelle
+        pageModel.Slug = CreateSlug(value);
+    }
+
+    private string CreateSlug(string title)
+    {
+        if (string.IsNullOrEmpty(title)) return "";
+
+        string slug = title.ToLowerInvariant();
+
+        // Türkçe karakterleri değiştir
+        slug = slug.Replace("ı", "i")
+                   .Replace("ğ", "g")
+                   .Replace("ü", "u")
+                   .Replace("ş", "s")
+                   .Replace("ö", "o")
+                   .Replace("ç", "c");
+
+        // Geçersiz karakterleri sil (Harf, sayı ve boşluk dışındakiler)
+        slug = Regex.Replace(slug, @"[^a-z0-9\s-]", "");
+
+        // Boşlukları tire ile değiştir ve fazlalık tireleri temizle
+        slug = Regex.Replace(slug, @"\s+", " ").Trim();
+        slug = slug.Replace(" ", "-");
+
+        return slug;
     }
 
     private async Task HandleSubmit()
     {
-        if (pageModel != null)
+        try
         {
-            DbContext.Pages.Update(pageModel);
-            await DbContext.SaveChangesAsync();
+            using var context = DbFactory.CreateDbContext();
+            int? finalParentId = (menuSelection == 0 || pageModel.ParentId == 0) ? null : pageModel.ParentId;
+            pageModel.ContentJson = JsonSerializer.Serialize(pageData);
 
-            // Kaydettikten sonra listeye dön
-            NavManager.NavigateTo("/pages");
+            // GÜVENLİK ÖNLEMİ: Eğer kullanıcı linki sildiyse, kaydederken tekrar oluştur.
+            if (string.IsNullOrWhiteSpace(pageModel.Slug) && !string.IsNullOrWhiteSpace(pageModel.Title))
+            {
+                pageModel.Slug = CreateSlug(pageModel.Title);
+            }
+
+            if (pageModel.Id == 0)
+            {
+                pageModel.ParentId = finalParentId;
+                pageModel.TenantId = SiteId;
+                ClearNavigations(pageModel);
+                context.Pages.Add(pageModel);
+            }
+            else
+            {
+                var existingPage = await context.Pages.IgnoreQueryFilters().FirstOrDefaultAsync(p => p.Id == pageModel.Id);
+                if (existingPage != null)
+                {
+                    existingPage.Title = pageModel.Title;
+                    existingPage.Slug = pageModel.Slug;
+                    existingPage.IsPublished = pageModel.IsPublished;
+                    existingPage.ParentId = finalParentId;
+                    existingPage.ContentJson = pageModel.ContentJson;
+                }
+            }
+            await context.SaveChangesAsync();
+            NavManager.NavigateTo($"/pages?openSiteId={SiteId}");
+        }
+        catch (Exception ex) { Console.WriteLine("Kayıt Hatası: " + ex.Message); }
+    }
+
+    private async Task UploadFiles(InputFileChangeEventArgs e, string type)
+    {
+        var webRoot = WebEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+        var uploadPath = Path.Combine(webRoot, "uploads", type);
+        if (!Directory.Exists(uploadPath)) Directory.CreateDirectory(uploadPath);
+        foreach (var file in e.GetMultipleFiles(10))
+        {
+            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.Name)}";
+            using (var fs = new FileStream(Path.Combine(uploadPath, fileName), FileMode.Create)) { await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(fs); }
+            var fileUrl = $"/uploads/{type}/{fileName}";
+            if (type == "slider") tempSlider.ImageUrl = fileUrl; else if (type == "news") tempNews.ImageUrl = fileUrl;
         }
     }
+    private void AddSliderItem() { if (!string.IsNullOrEmpty(tempSlider.ImageUrl)) { pageData.Sliders.Add(new SliderItem { ImageUrl = tempSlider.ImageUrl, Title = tempSlider.Title, LinkUrl = tempSlider.LinkUrl }); tempSlider = new(); } }
+    private void AddNewsItem() { if (!string.IsNullOrEmpty(tempNews.Title)) { pageData.NewsItems.Add(new NewsItem { Title = tempNews.Title, Summary = tempNews.Summary, ImageUrl = tempNews.ImageUrl }); tempNews = new(); } }
+    private void ClearNavigations(Page p) { try { var t = p.GetType().GetProperty("Tenant"); if (t != null) t.SetValue(p, null); var pp = p.GetType().GetProperty("ParentPage"); if (pp != null) pp.SetValue(p, null); } catch { } }
+    private void GoBack() => NavManager.NavigateTo($"/pages?openSiteId={SiteId}");
 
-    private void GoBack()
+    // --- MODELLER ---
+    public class PageContentData
     {
-        NavManager.NavigateTo("/pages");
+        public string PageType { get; set; } = "Standard";
+        public bool HasSlider { get; set; }
+        public List<SliderItem> Sliders { get; set; } = new();
+        public bool HasNews { get; set; }
+        public List<NewsItem> NewsItems { get; set; } = new();
+        public bool HasAnnouncements { get; set; }
+        public List<AnnouncementItem> Announcements { get; set; } = new();
+        public bool HasGallery { get; set; }
+        public List<string> GalleryImages { get; set; } = new();
+        public string HtmlContent { get; set; } = "";
+        public ContactInfo Contact { get; set; } = new();
     }
+
+    public class ContactInfo
+    {
+        public string PhoneLabel1 { get; set; }
+        public string Phone1 { get; set; }
+        public string PhoneLabel2 { get; set; }
+        public string Phone2 { get; set; }
+        public string Email1 { get; set; }
+        public string Email2 { get; set; }
+        public string AddressText { get; set; }
+        public string City { get; set; }
+        public string District { get; set; }
+        public string MapEmbedCode { get; set; }
+        public string WorkingDays { get; set; }
+        public string WorkingHours { get; set; }
+        public string Whatsapp { get; set; }
+        public string Instagram { get; set; }
+        public string Facebook { get; set; }
+        public string Twitter { get; set; }
+    }
+    public class SliderItem { public string ImageUrl { get; set; } public string Title { get; set; } public string LinkUrl { get; set; } }
+    public class NewsItem { public string Title { get; set; } public string Summary { get; set; } public string ImageUrl { get; set; } }
+    public class AnnouncementItem { public string Title { get; set; } public string ImageUrl { get; set; } }
 }
