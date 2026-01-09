@@ -1,0 +1,544 @@
+@page "/view/{pageSlug}"
+@using CoreBuilder.Entities
+@using CoreBuilder.Data
+@using Microsoft.EntityFrameworkCore
+@using System.Text.Json
+@using System.IO
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject NavigationManager NavManager
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<style>
+    .hero-slider {
+        height: calc(100vh - 70px);
+        min-height: 400px;
+    }
+
+        .hero-slider .carousel-item {
+            height: calc(100vh - 70px);
+            min-height: 400px;
+        }
+
+            .hero-slider .carousel-item img, .hero-slider .carousel-item video {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+        .hero-slider .carousel-caption {
+            bottom: 15%;
+            background: rgba(0,0,0,0.6);
+            padding: 1.5rem 2.5rem;
+            border-radius: 10px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+            .hero-slider .carousel-caption h2 {
+                font-size: 2rem;
+                font-weight: 700;
+                margin: 0;
+            }
+
+    .scroll-indicator {
+        position: absolute;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        animation: bounce 2s infinite;
+        color: white;
+        font-size: 2rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+
+    @@keyframes bounce {
+        0%, 20%, 50%, 80%, 100% {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        40% {
+            transform: translateX(-50%) translateY(-10px);
+        }
+
+        60% {
+            transform: translateX(-50%) translateY(-5px);
+        }
+    }
+
+    .carousel-control-prev, .carousel-control-next {
+        width: 60px;
+        opacity: 0.8;
+    }
+
+        .carousel-control-prev:hover, .carousel-control-next:hover {
+            opacity: 1;
+        }
+
+    .carousel-control-prev-icon, .carousel-control-next-icon {
+        width: 40px;
+        height: 40px;
+        background-color: rgba(0,0,0,0.5);
+        border-radius: 50%;
+        background-size: 50%;
+    }
+
+    .news-card:hover, .announcement-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+    }
+</style>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center" style="height:50vh">
+        <div class="spinner-border text-primary" style="width:3rem;height:3rem"></div>
+    </div>
+}
+else if (currentPage == null)
+{
+    <div class="container py-5">
+        <div class="alert alert-danger text-center py-5">
+            <h4>Sayfa Bulunamadý</h4>
+            <a href="/view/ana-sayfa" class="btn btn-primary mt-3">Ana Sayfaya Dön</a>
+        </div>
+    </div>
+}
+else
+{
+    // 1. SLIDER
+    if (pageContent?.HasSlider == true && pageContent.Sliders != null && pageContent.Sliders.Any())
+    {
+        <div class="position-relative">
+            <div id="heroSlider" class="carousel slide hero-slider">
+                <div class="carousel-indicators">
+                    @for (int i = 0; i < pageContent.Sliders.Count; i++)
+                    {
+                        <button type="button" data-bs-target="#heroSlider" data-bs-slide-to="@i" class="@(i == 0 ? "active" : "")" aria-current="@(i == 0 ? "true" : "false")"></button>
+                    }
+                </div>
+                <div class="carousel-inner h-100">
+                    @for (int i = 0; i < pageContent.Sliders.Count; i++)
+                    {
+                        var slider = pageContent.Sliders[i];
+                        <div class="carousel-item @(i == 0 ? "active" : "")">
+                            @if (IsVideo(slider.ImageUrl))
+                            {
+                                <video src="@slider.ImageUrl" autoplay muted loop playsinline></video>
+                            }
+                            else
+                            {
+                                <img src="@slider.ImageUrl" alt="@slider.Title">
+                            }
+                            @if (!string.IsNullOrEmpty(slider.Title))
+                            {
+                                <div class="carousel-caption"><h2>@slider.Title</h2></div>
+                            }
+                        </div>
+                    }
+                </div>
+                @if (pageContent.Sliders.Count > 1)
+                {
+                    <button class="carousel-control-prev" type="button" data-bs-target="#heroSlider" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span><span class="visually-hidden">Önceki</span></button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#heroSlider" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span><span class="visually-hidden">Sonraki</span></button>
+                }
+            </div>
+            <div class="scroll-indicator"><i class="fa-solid fa-chevron-down"></i></div>
+        </div>
+    }
+
+    // 2. SAYFA ÝÇERÝÐÝ (HTML Content)
+    if (pageContent?.PageType == "Contact")
+    {
+        <div class="container py-5">
+            <div class="row g-5">
+                <div class="col-lg-6">
+                    <h4 class="fw-bold mb-4"><i class="fa-solid fa-address-card text-primary me-2"></i>Ýletiþim Bilgileri</h4>
+                    @if (!string.IsNullOrEmpty(pageContent.Contact?.AddressText))
+                    {
+                        <div class="d-flex mb-4">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width:50px;height:50px;min-width:50px"><i class="fa-solid fa-location-dot"></i></div>
+                            <div><h6 class="fw-bold mb-1">Adres</h6><p class="text-muted mb-0">@pageContent.Contact.AddressText, @pageContent.Contact.District / @pageContent.Contact.City</p></div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(pageContent.Contact?.Phone1))
+                    {
+                        <div class="d-flex mb-4">
+                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width:50px;height:50px;min-width:50px"><i class="fa-solid fa-phone"></i></div>
+                            <div><h6 class="fw-bold mb-1">@(pageContent.Contact.PhoneLabel1 ?? "Telefon")</h6><a href="tel:@pageContent.Contact.Phone1" class="text-decoration-none fs-5">@pageContent.Contact.Phone1</a></div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(pageContent.Contact?.Email1))
+                    {
+                        <div class="d-flex mb-4">
+                            <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width:50px;height:50px;min-width:50px"><i class="fa-solid fa-envelope"></i></div>
+                            <div><h6 class="fw-bold mb-1">E-Posta</h6><a href="mailto:@pageContent.Contact.Email1" class="text-decoration-none">@pageContent.Contact.Email1</a></div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(pageContent.Contact?.WorkingDays))
+                    {
+                        <div class="d-flex mb-4">
+                            <div class="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center me-3" style="width:50px;height:50px;min-width:50px"><i class="fa-solid fa-clock"></i></div>
+                            <div><h6 class="fw-bold mb-1">Çalýþma Saatleri</h6><p class="text-muted mb-0">@pageContent.Contact.WorkingDays: @pageContent.Contact.WorkingHours</p></div>
+                        </div>
+                    }
+                </div>
+                <div class="col-lg-6">
+                    @if (!string.IsNullOrEmpty(pageContent.Contact?.MapEmbedCode))
+                    {
+                        <div class="rounded shadow overflow-hidden">@((MarkupString)pageContent.Contact.MapEmbedCode)</div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(pageContent?.HtmlContent))
+    {
+        <div class="container py-5">@((MarkupString)pageContent.HtmlContent)</div>
+    }
+
+    // 3. DUYURULAR
+    @if (filteredAnnouncements != null && filteredAnnouncements.Any())
+    {
+        <div class="container py-5">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold mb-0"><i class="fa-solid fa-bullhorn text-warning me-2"></i>Duyurular</h4>
+            </div>
+            <div class="row g-4">
+                @for (int i = 0; i < filteredAnnouncements.Count; i++)
+                {
+                    var index = i + 1;
+                    var ann = filteredAnnouncements[i];
+                    <div class="col-md-6 col-lg-3">
+                        <a href="/view/@PageSlug/duyuru/@index" class="text-decoration-none">
+                            <div class="card announcement-card h-100 shadow-sm border-0 border-start border-4 border-warning" style="cursor:pointer; transition: transform 0.2s, box-shadow 0.2s;">
+                                @if (!string.IsNullOrEmpty(ann.ImageUrl))
+                                {
+                                    @if (IsVideo(ann.ImageUrl))
+                                    {
+                                        <video src="@ann.ImageUrl" class="card-img-top" style="aspect-ratio: 2/3; width: 100%; object-fit: cover;" muted></video>
+                                    }
+                                    else
+                                    {
+                                        <img src="@ann.ImageUrl" class="card-img-top" style="aspect-ratio: 2/3; width: 100%; object-fit: cover;">
+                                    }
+                                }
+                                <div class="card-body">
+                                    <h6 class="card-title fw-bold text-dark">@ann.Title</h6>
+                                    <p class="card-text text-muted small">@(ann.Content?.Length > 80 ? ann.Content.Substring(0, 80) + "..." : ann.Content)</p>
+                                </div>
+                                <div class="card-footer bg-transparent border-0">
+                                    <small class="text-warning fw-bold">Devamýný Oku <i class="fa-solid fa-arrow-right ms-1"></i></small>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    // 4. HABERLER
+    @if (filteredNews != null && filteredNews.Any())
+    {
+        <div class="bg-light py-5">
+            <div class="container">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="fw-bold mb-0"><i class="fa-solid fa-newspaper text-info me-2"></i>Haberler</h4>
+                </div>
+                <div class="row g-4">
+                    @for (int i = 0; i < filteredNews.Count; i++)
+                    {
+                        var index = i + 1;
+                        var news = filteredNews[i];
+                        <div class="col-md-6 col-lg-3">
+                            <a href="/view/@PageSlug/haber/@index" class="text-decoration-none">
+                                <div class="card news-card h-100 shadow-sm border-0" style="cursor:pointer; transition: transform 0.2s, box-shadow 0.2s;">
+                                    @if (!string.IsNullOrEmpty(news.ImageUrl))
+                                    {
+                                        @if (IsVideo(news.ImageUrl))
+                                        {
+                                            <video src="@news.ImageUrl" class="card-img-top" style="aspect-ratio: 2/3; width: 100%; object-fit: cover;" muted></video>
+                                        }
+                                        else
+                                        {
+                                            <img src="@news.ImageUrl" class="card-img-top" style="aspect-ratio: 2/3; width: 100%; object-fit: cover;">
+                                        }
+                                    }
+                                    <div class="card-body">
+                                        <h6 class="card-title fw-bold text-dark">@news.Title</h6>
+                                        <p class="card-text text-muted small">@(news.Summary?.Length > 80 ? news.Summary.Substring(0, 80) + "..." : news.Summary)</p>
+                                    </div>
+                                    <div class="card-footer bg-transparent border-0">
+                                        <small class="text-info fw-bold">Devamýný Oku <i class="fa-solid fa-arrow-right ms-1"></i></small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    // 5. GALERÝ - Video desteði eklendi
+    @if (filteredGallery != null && filteredGallery.Any())
+    {
+        <div class="container py-5">
+            @if (isGaleriPage)
+            {
+            }
+            <div class="row g-4">
+                @foreach (var item in filteredGallery)
+                {
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="card h-100 shadow-sm border-0">
+                            @if (IsVideo(item.ImageUrl))
+                            {
+                                <video src="@item.ImageUrl" class="card-img-top" style="aspect-ratio: 2/3; width: 100%; object-fit: cover;" controls></video>
+                            }
+                            else
+                            {
+                                <img src="@item.ImageUrl" class="card-img-top" style="aspect-ratio: 2/3; width: 100%; object-fit: cover;">
+                            }
+                            @if (!string.IsNullOrEmpty(item.Title) || !string.IsNullOrEmpty(item.Description))
+                            {
+                                <div class="card-body p-2 text-center">
+                                    @if (!string.IsNullOrEmpty(item.Title))
+                                    {
+                                        <p class="card-text small fw-bold mb-1">@item.Title</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(item.Description))
+                                    {
+                                        <p class="card-text small text-muted mb-0">@item.Description</p>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public string PageSlug { get; set; }
+    private string lastLoadedSlug = "";
+    private Page currentPage;
+    private PageContentData pageContent;
+    private SiteContentData siteContentData;
+    private List<AnnouncementDto> filteredAnnouncements = new();
+    private List<NewsDto> filteredNews = new();
+    private List<GalleryDto> filteredGallery = new();
+    private bool isLoading = true;
+    private bool hasInitializedCarousel = false;
+    private bool isGaleriPage = false;
+
+    // Video dosyasý mý kontrol et
+    private bool IsVideo(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return false;
+        var ext = Path.GetExtension(url).ToLower();
+        return ext == ".mp4" || ext == ".webm" || ext == ".ogg" || ext == ".mov" || ext == ".avi" || ext == ".mkv";
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (PageSlug == lastLoadedSlug) return;
+        await LoadPageData();
+    }
+
+    private async Task LoadPageData()
+    {
+        isLoading = true;
+        hasInitializedCarousel = false;
+        currentPage = null;
+        pageContent = null;
+        filteredAnnouncements = new();
+        filteredNews = new();
+        filteredGallery = new();
+        isGaleriPage = false;
+        StateHasChanged();
+
+        try
+        {
+            using var context = DbFactory.CreateDbContext();
+            currentPage = await context.Pages.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(p => p.Slug == PageSlug);
+
+            if (currentPage != null)
+            {
+                if (!string.IsNullOrWhiteSpace(currentPage.ContentJson))
+                {
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    pageContent = JsonSerializer.Deserialize<PageContentData>(currentPage.ContentJson, options) ?? new PageContentData();
+                }
+                else
+                {
+                    pageContent = new PageContentData();
+                }
+
+                var contentDataPage = await context.Pages.IgnoreQueryFilters().AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.TenantId == currentPage.TenantId && p.Slug == "_site_content_data");
+
+                bool isDuyuruPage = PageSlug.ToLower().Contains("duyuru") || (currentPage.Title?.ToLower().Contains("duyuru") ?? false);
+                bool isHaberPage = PageSlug.ToLower().Contains("haber") || (currentPage.Title?.ToLower().Contains("haber") ?? false);
+                isGaleriPage = PageSlug.ToLower().Contains("galeri") || (currentPage.Title?.ToLower().Contains("galeri") ?? false);
+
+                if (contentDataPage != null && !string.IsNullOrWhiteSpace(contentDataPage.ContentJson))
+                {
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    siteContentData = JsonSerializer.Deserialize<SiteContentData>(contentDataPage.ContentJson, options);
+
+                    if (siteContentData != null)
+                    {
+                        if (isDuyuruPage)
+                        {
+                            filteredAnnouncements = siteContentData.Announcements?.Select(a => new AnnouncementDto { Title = a.Title, Content = a.Content, ImageUrl = a.ImageUrl }).ToList() ?? new();
+                        }
+                        else
+                        {
+                            filteredAnnouncements = siteContentData.Announcements?.Where(a => a.SelectedPages != null && a.SelectedPages.Contains(PageSlug)).Select(a => new AnnouncementDto { Title = a.Title, Content = a.Content, ImageUrl = a.ImageUrl }).ToList() ?? new();
+                        }
+
+                        if (isHaberPage)
+                        {
+                            filteredNews = siteContentData.NewsItems?.Select(n => new NewsDto { Title = n.Title, Summary = n.Summary, Content = n.Content, ImageUrl = n.ImageUrl }).ToList() ?? new();
+                        }
+                        else
+                        {
+                            filteredNews = siteContentData.NewsItems?.Where(n => n.SelectedPages != null && n.SelectedPages.Contains(PageSlug)).Select(n => new NewsDto { Title = n.Title, Summary = n.Summary, Content = n.Content, ImageUrl = n.ImageUrl }).ToList() ?? new();
+                        }
+                    }
+                }
+
+                if (pageContent?.Announcements != null)
+                {
+                    foreach (var ann in pageContent.Announcements)
+                    {
+                        if (!filteredAnnouncements.Any(a => a.Title == ann.Title))
+                            filteredAnnouncements.Add(ann);
+                    }
+                }
+
+                if (pageContent?.NewsItems != null)
+                {
+                    foreach (var news in pageContent.NewsItems)
+                    {
+                        if (!filteredNews.Any(n => n.Title == news.Title))
+                            filteredNews.Add(news);
+                    }
+                }
+
+                // GALERÝ: Tüm sayfalardan topla ve filtrele
+                var allSitePages = await context.Pages.IgnoreQueryFilters().AsNoTracking()
+                    .Where(p => p.TenantId == currentPage.TenantId && !p.Slug.StartsWith("_"))
+                    .ToListAsync();
+
+                var allGalleryItems = new List<GalleryDto>();
+                var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+                foreach (var page in allSitePages)
+                {
+                    if (!string.IsNullOrWhiteSpace(page.ContentJson))
+                    {
+                        try
+                        {
+                            var content = JsonSerializer.Deserialize<PageContentData>(page.ContentJson, jsonOptions);
+                            if (content?.GalleryItems != null)
+                                allGalleryItems.AddRange(content.GalleryItems);
+                        }
+                        catch { }
+                    }
+                }
+
+                if (isGaleriPage)
+                {
+                    filteredGallery = allGalleryItems.GroupBy(g => g.ImageUrl).Select(g => g.First()).ToList();
+                }
+                else
+                {
+                    filteredGallery = allGalleryItems.Where(g => g.SelectedPages != null && g.SelectedPages.Contains(PageSlug)).GroupBy(g => g.ImageUrl).Select(g => g.First()).ToList();
+                }
+            }
+
+            lastLoadedSlug = PageSlug;
+        }
+        catch (Exception ex) { Console.WriteLine($"Hata: {ex.Message}"); }
+        finally { isLoading = false; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!hasInitializedCarousel && !isLoading && pageContent?.HasSlider == true && pageContent.Sliders?.Count > 0)
+        {
+            hasInitializedCarousel = true;
+            await Task.Delay(200);
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("eval", @"(function() { var heroSlider = document.getElementById('heroSlider'); if (heroSlider && typeof bootstrap !== 'undefined' && bootstrap.Carousel) { var existingCarousel = bootstrap.Carousel.getInstance(heroSlider); if (existingCarousel) { existingCarousel.dispose(); } var carousel = new bootstrap.Carousel(heroSlider, { interval: 5000, ride: 'carousel', wrap: true, touch: true, pause: 'hover' }); carousel.cycle(); } })();");
+            }
+            catch (Exception ex) { Console.WriteLine($"Carousel init error: {ex.Message}"); }
+        }
+    }
+
+    public class SiteContentData
+    {
+        public List<SiteAnnouncementItem> Announcements { get; set; } = new();
+        public List<SiteNewsItem> NewsItems { get; set; } = new();
+    }
+
+    public class SiteAnnouncementItem
+    {
+        public string Title { get; set; } = "";
+        public string Content { get; set; } = "";
+        public string ImageUrl { get; set; } = "";
+        public string LinkUrl { get; set; } = "";
+        public List<string> SelectedPages { get; set; } = new();
+    }
+
+    public class SiteNewsItem
+    {
+        public string Title { get; set; } = "";
+        public string Summary { get; set; } = "";
+        public string Content { get; set; } = "";
+        public string ImageUrl { get; set; } = "";
+        public string LinkUrl { get; set; } = "";
+        public List<string> SelectedPages { get; set; } = new();
+    }
+
+    public class PageContentData
+    {
+        public string PageType { get; set; } = "Standard";
+        public bool HasSlider { get; set; }
+        public List<SliderDto> Sliders { get; set; } = new();
+        public bool HasNews { get; set; }
+        public List<NewsDto> NewsItems { get; set; } = new();
+        public bool HasAnnouncements { get; set; }
+        public List<AnnouncementDto> Announcements { get; set; } = new();
+        public bool HasGallery { get; set; }
+        public List<GalleryDto> GalleryItems { get; set; } = new();
+        public string HtmlContent { get; set; } = "";
+        public ContactInfo Contact { get; set; } = new();
+    }
+
+    public class ContactInfo
+    {
+        public string PhoneLabel1 { get; set; } = ""; public string Phone1 { get; set; } = "";
+        public string Email1 { get; set; } = ""; public string AddressText { get; set; } = "";
+        public string City { get; set; } = ""; public string District { get; set; } = "";
+        public string MapEmbedCode { get; set; } = ""; public string WorkingDays { get; set; } = "";
+        public string WorkingHours { get; set; } = "";
+    }
+
+    public class SliderDto { public string ImageUrl { get; set; } = ""; public string Title { get; set; } = ""; }
+    public class NewsDto { public string Title { get; set; } = ""; public string Summary { get; set; } = ""; public string Content { get; set; } = ""; public string ImageUrl { get; set; } = ""; }
+    public class AnnouncementDto { public string Title { get; set; } = ""; public string ImageUrl { get; set; } = ""; public string Content { get; set; } = ""; }
+    public class GalleryDto
+    {
+        public string ImageUrl { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Description { get; set; } = "";
+        public List<string> SelectedPages { get; set; } = new();
+    }
+}

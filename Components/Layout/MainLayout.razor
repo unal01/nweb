@@ -5,43 +5,146 @@
 @inject NavigationManager NavManager
 @inject ApplicationDbContext DbContext
 
-@* --- CSS: Menülerin üzerine gelince açılması için --- *@
 <style>
-    /* Admin panelini etkilememesi için @@media kullanıyoruz */
-    @@media all and (min-width: 992px) {
-        .navbar-nav .dropdown:hover .dropdown-menu {
-            display: block;
+    /* --- GÜNCELLENMİŞ TASARIM CSS --- */
+
+    /* 1. Ana Navbar Şeridi (Kırmızı-Mavi Arka Plan Görseli) */
+    .custom-navbar {
+        background-color: #1F3A60;
+        background-size: cover;
+        background-position: left top;
+        padding: 0;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        height: 100px; /* Arka planın görünmesi için yükseklik artırıldı */
+        position: relative;
+    }
+
+    /* 2. Logo Kutusu (Daha Büyük) */
+    .logo-container {
+        background-color: white; /* Beyaz kutu */
+        height: 80px; /* Yükseklik artırıldı */
+        display: flex;
+        align-items: center;
+        padding-left: 20px;
+        padding-right: 40px;
+        clip-path: polygon(0 0, 100% 0, 85% 100%, 0% 100%);
+        margin-right: 20px;
+        position: relative;
+        z-index: 10;
+        /* Logonun biraz yukarı ve sola taşması için konumlandırma */
+        margin-top: -10px;
+        box-shadow: 5px 5px 15px rgba(0,0,0,0.2);
+    }
+
+        .logo-container img {
+            max-height: 80px; /* Logo yüksekliği artırıldı */
+            max-width: auto; /* Genişlik orantılı */
+        }
+
+    /* 3. Menü Linkleri ve Çubuğu */
+    .navbar-collapse {
+        /* Menü çubuğunu logonun sağına hizala */
+        margin-top: 25px;
+        background-color: rgba(31, 58, 96, 0.8); /* Yarı saydam koyu mavi */
+        padding: 5px 20px;
+        border-radius: 5px;
+        z-index: 9;
+    }
+
+    .custom-nav-link {
+        color: white !important;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.95rem;
+        margin: 0 10px;
+        transition: color 0.3s;
+    }
+
+        .custom-nav-link:hover {
+            color: #ddd !important;
+        }
+
+    /* Dropdown Menü İçi */
+    .dropdown-menu {
+        border-radius: 0;
+        border: none;
+        border-top: 3px solid #E31E24;
+    }
+
+    /* 4. Kayıt Ol Butonu (Kırmızı) */
+    .btn-register-design {
+        background-color: #E31E24;
+        color: white !important;
+        height: 50px; /* Buton yüksekliği */
+        display: flex;
+        align-items: center;
+        padding: 0 30px;
+        font-weight: bold;
+        text-decoration: none;
+        clip-path: polygon(15% 0, 100% 0, 100% 100%, 0% 100%);
+        text-transform: uppercase;
+        font-size: 1rem;
+        margin-left: 20px; /* Menüden boşluk */
+    }
+
+        .btn-register-design:hover {
+            background-color: #c4191e;
+        }
+
+    /* Mobil Uyumluluk */
+    @@media (max-width: 991px) {
+        .custom-navbar {
+            height: auto;
+            background-image: none; /* Mobilde görseli kaldır */
+            background-color: #1F3A60; /* Düz renk */
+        }
+
+        .logo-container {
+            clip-path: none;
+            width: 100%;
+            padding-right: 20px;
+            border-bottom: 2px solid #1F3A60;
+            height: 80px; /* Mobilde logo yüksekliği */
             margin-top: 0;
+            box-shadow: none;
+        }
+
+            .logo-container img {
+                max-height: 60px;
+            }
+
+        .navbar-collapse {
+            background-color: #1F3A60;
+            padding: 10px;
+            margin-top: 0;
+            border-radius: 0;
+        }
+
+        .btn-register-design {
+            clip-path: none;
+            width: 100%;
+            justify-content: center;
+            height: 50px;
+            margin-left: 0;
+            margin-top: 10px;
         }
     }
 </style>
 
 @if (IsAdminPanel)
 {
-    @* ========================================== *@
-    @* BURASI SENİN ESKİ ADMIN PANELİN       *@
-    @* ========================================== *@
     <div class="page">
-        <div class="sidebar">
-            <NavMenu />
-        </div>
-
+        <div class="sidebar"><NavMenu /></div>
         <main>
             <div class="top-row px-4">
-                <a href="/" target="_blank">Siteyi Önizle</a>
+                <a href="https://sinavkurs.localhost:7156/view/ana-sayfa" target="_blank">Siteyi Önizle</a>
             </div>
-
-            <article class="content px-4">
-                @Body
-            </article>
+            <article class="content px-4">@Body</article>
         </main>
     </div>
 }
 else
 {
-    @* ========================================== *@
-    @* BURASI MÜŞTERİ SİTESİ            *@
-    @* ========================================== *@
     @if (!isLoaded)
     {
         <div class="d-flex justify-content-center align-items-center vh-100">
@@ -53,73 +156,68 @@ else
         <CascadingValue Value="currentTenant">
             <div class="d-flex flex-column min-vh-100">
 
-                @* NAVBAR *@
-                <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
-                    <div class="container">
-                        <a class="navbar-brand fw-bold" href="/">@(currentTenant?.SiteName ?? "Site Adı")</a>
+                <header class="sticky-top">
+                    <nav class="navbar navbar-expand-lg custom-navbar">
+                        <div class="container-fluid p-0">
 
-                        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                            <span class="navbar-toggler-icon"></span>
-                        </button>
+                            <a class="navbar-brand logo-container" href="/view/ana-sayfa">
+                                <img src="/uploads/images/site-logo.jpg" alt="Sınav Kurs">
+                            </a>
 
-                        <div class="collapse navbar-collapse" id="navbarNav">
-                            <ul class="navbar-nav ms-auto">
-                                <li class="nav-item"><a class="nav-link" href="/">Anasayfa</a></li>
+                            <button class="navbar-toggler me-3 bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                                <span class="navbar-toggler-icon"></span>
+                            </button>
 
-                                @* MENÜLERİ LİSTELE *@
-                                @foreach (var parentPage in menuPages.Where(p => p.ParentId == null || p.ParentId == 0))
-                                {
-                                    var children = menuPages.Where(p => p.ParentId == parentPage.Id).ToList();
-
-                                    if (children.Any())
+                            <div class="collapse navbar-collapse" id="navbarNav">
+                                <ul class="navbar-nav align-items-center ms-auto">
+                                    @foreach (var parentPage in menuPages.Where(p => p.ParentId == null || p.ParentId == 0))
                                     {
-                                        // --- AÇILIR MENÜ ---
-                                        <li class="nav-item dropdown">
-                                            <a class="nav-link dropdown-toggle" href="javascript:void(0)" id="navDrop_@parentPage.Id" role="button" aria-expanded="false">
-                                                @parentPage.Title
-                                            </a>
-                                            <ul class="dropdown-menu">
-                                                @foreach (var child in children)
-                                                {
-                                                    <li><a class="dropdown-item" href="/@child.Slug">@child.Title</a></li>
-                                                }
-                                            </ul>
-                                        </li>
-                                    }
-                                    else
-                                    {
-                                        // --- NORMAL LİNK ---
-                                        if (parentPage.Slug == "/" || parentPage.Slug == "home") continue;
+                                        var children = menuPages.Where(p => p.ParentId == parentPage.Id).ToList();
+                                        var slug = parentPage.Slug;
 
-                                        <li class="nav-item">
-                                            <a class="nav-link" href="/@parentPage.Slug">@parentPage.Title</a>
-                                        </li>
+                                        if (children.Any())
+                                        {
+                                            <li class="nav-item dropdown">
+                                                <a class="nav-link dropdown-toggle custom-nav-link" href="#" role="button" data-bs-toggle="dropdown">@parentPage.Title</a>
+                                                <ul class="dropdown-menu">
+                                                    @foreach (var child in children)
+                                                    {
+                                                        var childSlug = child.Slug;
+                                                        <li><a class="dropdown-item" @onclick='() => Navigate($"/view/{childSlug}")' style="cursor:pointer">@child.Title</a></li>
+                                                    }
+                                                </ul>
+                                            </li>
+                                        }
+                                        else
+                                        {
+                                            <li class="nav-item">
+                                                <a class="nav-link custom-nav-link" @onclick='() => Navigate($"/view/{slug}")' style="cursor:pointer">@parentPage.Title</a>
+                                            </li>
+                                        }
                                     }
-                                }
-                            </ul>
+                                </ul>
+
+                                <a href="/view/on-kayit" class="btn-register-design">
+                                    KAYIT OL
+                                </a>
+                            </div>
                         </div>
+                    </nav>
+                </header>
+
+                <main class="flex-grow-1">@Body</main>
+
+                <footer class="bg-dark text-light py-4 text-center">
+                    <div class="container">
+                        <p class="mb-0 fs-6">&copy; @DateTime.Now.Year @(currentTenant?.SiteName ?? "Site") - Tüm Hakları Saklıdır</p>
                     </div>
-                </nav>
-
-                @* İÇERİK ALANI *@
-                <main class="flex-grow-1">
-                    @Body
-                </main>
-
-                @* FOOTER *@
-                <footer class="bg-dark text-light py-4 mt-auto text-center">
-                    &copy; @DateTime.Now.Year @(currentTenant?.SiteName ?? "CoreBuilder")
                 </footer>
             </div>
         </CascadingValue>
     }
 }
 
-<div id="blazor-error-ui">
-    Hata oluştu.
-    <a href="" class="reload">Yenile</a>
-    <span class="dismiss">🗙</span>
-</div>
+<div id="blazor-error-ui">Hata oluştu. <a href="" class="reload">Yenile</a> <span class="dismiss">🗙</span></div>
 
 @code {
     private bool IsAdminPanel = false;
@@ -130,30 +228,21 @@ else
     protected override async Task OnInitializedAsync()
     {
         var uri = new Uri(NavManager.Uri);
+        if (!uri.Host.Contains("sinavkurs")) { IsAdminPanel = true; isLoaded = true; return; }
 
-        // Eğer domain içinde 'sinavkurs' GEÇMİYORSA -> Admin Panelidir
-        if (!uri.Host.Contains("sinavkurs"))
+        try
         {
-            IsAdminPanel = true;
-            isLoaded = true;
-        }
-        else
-        {
-            // Müşteri Sitesi Mantığı
-            try
+            currentTenant = await DbContext.Tenants.FirstOrDefaultAsync(t => t.Domain == uri.Host);
+            if (currentTenant != null)
             {
-                currentTenant = await DbContext.Tenants.FirstOrDefaultAsync(t => t.Domain == uri.Host);
-                if (currentTenant != null)
-                {
-                    menuPages = await DbContext.Pages
-                        .IgnoreQueryFilters()
-                        .Where(p => p.TenantId == currentTenant.Id && p.IsPublished)
-                        .OrderBy(p => p.Order)
-                        .ToListAsync();
-                }
+                menuPages = await DbContext.Pages.IgnoreQueryFilters()
+                    .Where(p => p.TenantId == currentTenant.Id && p.IsPublished)
+                    .OrderBy(p => p.Order).ToListAsync();
             }
-            catch (Exception ex) { Console.WriteLine("Layout Hatası: " + ex.Message); }
-            finally { isLoaded = true; }
         }
+        catch { }
+        finally { isLoaded = true; }
     }
+
+    private void Navigate(string url) => NavManager.NavigateTo(url);
 }

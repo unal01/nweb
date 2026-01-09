@@ -1,101 +1,548 @@
-ï»¿@page "/sites/create"
+@page "/sites/create"
 @using CoreBuilder.Entities
 @using CoreBuilder.Data
-@inject ApplicationDbContext DbContext
+@using Microsoft.EntityFrameworkCore
+@using System.Text.RegularExpressions
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject NavigationManager NavManager
+@rendermode InteractiveServer
 
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="fa-solid fa-plus-circle me-2"></i>Yeni Site OluÅŸtur</h5>
-            </div>
-            <div class="card-body">
-                <EditForm Model="@newTenant" OnValidSubmit="HandleValidSubmit">
-                    <DataAnnotationsValidator />
-                    <ValidationSummary />
+<div class="container-fluid pb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4 sticky-top bg-white py-3 border-bottom" style="z-index: 1000;">
+        <div>
+            <h3 class="fw-bold text-dark mb-0">
+                <i class="fa-solid fa-globe text-primary me-2"></i>
+                Yeni Site Oluþtur
+            </h3>
+            <span class="text-muted small">Çok kiracýlý web sitenizi birkaç adýmda oluþturun</span>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-light border shadow-sm" @onclick="GoBack" disabled="@isLoading">
+                <i class="fa-solid fa-arrow-left me-2"></i>Geri
+            </button>
+        </div>
+    </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Site AdÄ±</label>
-                        <InputText class="form-control" @bind-Value="newTenant.SiteName" placeholder="Ã–rn: BartÄ±n SÄ±nav Kurs" />
-                    </div>
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-exclamation-circle me-2"></i>
+            <strong>Hata:</strong> @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
 
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold">Domain (Alan AdÄ±)</label>
-                            <div class="input-group">
-                                <span class="input-group-text">https://</span>
-                                <InputText class="form-control" @bind-Value="newTenant.Domain" placeholder="sinav.localhost" />
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-check-circle me-2"></i>
+            <strong>Baþarýlý:</strong> @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <EditForm Model="@newTenant" OnValidSubmit="HandleValidSubmit">
+                <DataAnnotationsValidator />
+
+                <div class="row g-4">
+                    <!-- Sol Taraf: Temel Bilgiler -->
+                    <div class="col-lg-7">
+                        <div class="card shadow-sm border-0 mb-4">
+                            <div class="card-header bg-light fw-bold text-uppercase small">
+                                <i class="fa-solid fa-info-circle me-2"></i>Temel Bilgiler
                             </div>
-                            <small class="text-muted">Test iÃ§in '.localhost' ile biten bir isim seÃ§in.</small>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">
+                                        Site Adý <span class="text-danger">*</span>
+                                    </label>
+                                    <InputText class="form-control form-control-lg"
+                                               Value="@newTenant.SiteName"
+                                               ValueExpression="@(() => newTenant.SiteName)"
+                                               ValueChanged="@((string value) => OnSiteNameChanged(value))"
+                                               placeholder="Örn: Bartýn Sýnav Kursu" />
+                                    <ValidationMessage For="@(() => newTenant.SiteName)" />
+                                    <div class="form-text">
+                                        <i class="fa-solid fa-lightbulb text-warning me-1"></i>
+                                        Bu isim site baþlýðý olarak kullanýlacaktýr.
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">
+                                        Domain (Alan Adý) <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group input-group-lg">
+                                        <span class="input-group-text bg-light">
+                                            <i class="fa-solid fa-globe me-1"></i>https://
+                                        </span>
+                                        <input type="text" class="@GetFullDomainClass()" @bind="newTenant.Domain" @bind:event="oninput" @onchange="OnDomainInputChanged" placeholder="sinav.localhost" />
+                                        @if (isDomainChecking)
+                                        {
+                                            <span class="input-group-text">
+                                                <span class="spinner-border spinner-border-sm"></span>
+                                            </span>
+                                        }
+                                        else if (isDomainAvailable && !string.IsNullOrEmpty(newTenant.Domain))
+                                        {
+                                            <span class="input-group-text bg-success text-white">
+                                                <i class="fa-solid fa-check"></i>
+                                            </span>
+                                        }
+                                        else if (!isDomainAvailable && !string.IsNullOrEmpty(newTenant.Domain))
+                                        {
+                                            <span class="input-group-text bg-danger text-white">
+                                                <i class="fa-solid fa-times"></i>
+                                            </span>
+                                        }
+                                    </div>
+                                    @if (!isDomainAvailable && !string.IsNullOrEmpty(newTenant.Domain))
+                                    {
+                                        <div class="text-danger small mt-1">
+                                            <i class="fa-solid fa-exclamation-triangle me-1"></i>
+                                            Bu domain zaten kullanýlýyor!
+                                        </div>
+                                    }
+                                    <div class="form-text">
+                                        <i class="fa-solid fa-info-circle me-1"></i>
+                                        Test için <code>.localhost</code> ile biten bir isim seçin.
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">
+                                        Kategori / Þablon <span class="text-danger">*</span>
+                                    </label>
+                                    <InputSelect class="form-select form-select-lg" @bind-Value="newTenant.Category">
+                                        <option value="">Bir kategori seçin...</option>
+                                        <option value="Egitim">?? Eðitim Kurumu</option>
+                                        <option value="Kurumsal">?? Kurumsal Firma</option>
+                                        <option value="Eticaret">?? E-Ticaret</option>
+                                        <option value="Blog">?? Blog / Haber</option>
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => newTenant.Category)" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Açýklama</label>
+                                    <InputTextArea class="form-control"
+                                                   @bind-Value="siteDescription"
+                                                   rows="3"
+                                                   placeholder="Site hakkýnda kýsa açýklama (opsiyonel)" />
+                                    <div class="form-text">SEO için kullanýlabilir.</div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold">Kategori / Åžablon</label>
-                            <InputSelect class="form-select" @bind-Value="newTenant.Category">
-                                <option value="">Bir kategori seÃ§in...</option>
-                                <option value="Egitim">EÄŸitim Kurumu</option>
-                                <option value="Kurumsal">Kurumsal Firma</option>
-                                <option value="Eticaret">E-Ticaret</option>
-                                <option value="Blog">Blog / Haber</option>
-                            </InputSelect>
+                        <!-- Tema Ayarlarý -->
+                        <div class="card shadow-sm border-0 mb-4">
+                            <div class="card-header bg-light fw-bold text-uppercase small">
+                                <i class="fa-solid fa-palette me-2"></i>Tema Ayarlarý
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">Ana Renk</label>
+                                        <div class="input-group">
+                                            <input type="color" class="form-control form-control-color" @bind="themeSettings.PrimaryColor" />
+                                            <input type="text" class="form-control" @bind="themeSettings.PrimaryColor" placeholder="#0d6efd" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">Ýkincil Renk</label>
+                                        <div class="input-group">
+                                            <input type="color" class="form-control form-control-color" @bind="themeSettings.SecondaryColor" />
+                                            <input type="text" class="form-control" @bind="themeSettings.SecondaryColor" placeholder="#6c757d" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">Baþlýk Arkaplan</label>
+                                        <div class="input-group">
+                                            <input type="color" class="form-control form-control-color" @bind="themeSettings.HeaderBgColor" />
+                                            <input type="text" class="form-control" @bind="themeSettings.HeaderBgColor" placeholder="#ffffff" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">Yazý Tipi</label>
+                                        <InputSelect class="form-select" @bind-Value="themeSettings.FontFamily">
+                                            <option value="Inter">Inter</option>
+                                            <option value="Roboto">Roboto</option>
+                                            <option value="Open Sans">Open Sans</option>
+                                            <option value="Poppins">Poppins</option>
+                                            <option value="Lato">Lato</option>
+                                        </InputSelect>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">Menü Tipi</label>
+                                        <InputSelect class="form-select" @bind-Value="themeSettings.MenuType">
+                                            <option value="Yatay">Yatay</option>
+                                            <option value="Dikey">Dikey</option>
+                                        </InputSelect>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">Yazý Boyutu (px)</label>
+                                        <InputNumber class="form-control" @bind-Value="themeSettings.BaseFontSize" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ýletiþim Bilgileri -->
+                        <div class="card shadow-sm border-0 mb-4">
+                            <div class="card-header bg-light fw-bold text-uppercase small">
+                                <i class="fa-solid fa-address-book me-2"></i>Ýletiþim Bilgileri (Opsiyonel)
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">E-posta</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fa-solid fa-envelope"></i></span>
+                                            <input type="email" class="form-control" @bind="contactInfo.Email" placeholder="info@site.com" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">Telefon</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fa-solid fa-phone"></i></span>
+                                            <input type="tel" class="form-control" @bind="contactInfo.Phone1" placeholder="+90 555 000 00 00" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="d-flex justify-content-end gap-2 mt-3">
-                        <button type="button" class="btn btn-secondary" @onclick="GoBack">Ä°ptal</button>
-                        <button type="submit" class="btn btn-success"><i class="fa-solid fa-save me-1"></i> Kaydet ve OluÅŸtur</button>
+                    <!-- Sað Taraf: Önizleme ve Ýpuçlarý -->
+                    <div class="col-lg-5">
+                        <div class="card shadow-sm border-0 mb-4 sticky-top" style="top: 100px;">
+                            <div class="card-header bg-light fw-bold text-uppercase small">
+                                <i class="fa-solid fa-eye me-2"></i>Önizleme ve Bilgi
+                            </div>
+                            <div class="card-body">
+                                @if (!string.IsNullOrEmpty(newTenant.Category))
+                                {
+                                    <div class="mb-3">
+                                        <h6 class="fw-bold text-primary">@GetCategoryDisplayName(newTenant.Category)</h6>
+                                        <p class="small text-muted mb-2">@GetCategoryDescription(newTenant.Category)</p>
+                                        <div class="border rounded p-2 bg-light">
+                                            <strong class="small">Bu þablon içerir:</strong>
+                                            <ul class="small mb-0 mt-1">
+                                                @foreach (var feature in GetCategoryFeatures(newTenant.Category))
+                                                {
+                                                    <li>@feature</li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    </div>
+                                }
+
+                                <div class="alert alert-info border-0 shadow-sm">
+                                    <h6 class="fw-bold mb-2">
+                                        <i class="fa-solid fa-lightbulb me-2"></i>Ýpuçlarý
+                                    </h6>
+                                    <ul class="small mb-0">
+                                        <li>Site adý SEO için önemlidir</li>
+                                        <li>Domain benzersiz olmalýdýr</li>
+                                        <li>Kategori daha sonra deðiþtirilebilir</li>
+                                        <li>Tema ayarlarý sonradan düzenlenebilir</li>
+                                    </ul>
+                                </div>
+
+                                @if (!string.IsNullOrEmpty(newTenant.SiteName) && !string.IsNullOrEmpty(newTenant.Domain))
+                                {
+                                    <div class="card border-primary">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold text-primary mb-2">Site Özeti</h6>
+                                            <div class="small">
+                                                <div class="mb-1"><strong>Ýsim:</strong> @newTenant.SiteName</div>
+                                                <div class="mb-1"><strong>URL:</strong> <code>https://@newTenant.Domain</code></div>
+                                                @if (!string.IsNullOrEmpty(newTenant.Category))
+                                                {
+                                                    <div class="mb-1"><strong>Kategori:</strong> @GetCategoryDisplayName(newTenant.Category)</div>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
                     </div>
-                </EditForm>
-            </div>
+                </div>
+
+                <!-- Alt Butonlar -->
+                <div class="card shadow-sm border-0 sticky-bottom bg-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                @if (isLoading)
+                                {
+                                    <div class="text-primary">
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                        <span>@loadingMessage</span>
+                                    </div>
+                                }
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-secondary" @onclick="GoBack" disabled="@isLoading">
+                                    <i class="fa-solid fa-times me-2"></i>Ýptal
+                                </button>
+                                <button type="submit" class="btn btn-success btn-lg px-4" disabled="@(!IsFormValid() || isLoading)">
+                                    @if (isLoading)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    else
+                                    {
+                                        <i class="fa-solid fa-rocket me-2"></i>
+                                    }
+                                    Site Oluþtur
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </EditForm>
         </div>
     </div>
 </div>
 
 @code {
-    // Form iÃ§in boÅŸ bir model oluÅŸturuyoruz
     private Tenant newTenant = new Tenant();
+    private ThemeSettings themeSettings = new ThemeSettings
+    {
+        PrimaryColor = "#0d6efd",
+        SecondaryColor = "#6c757d",
+        HeaderBgColor = "#ffffff",
+        FontFamily = "Inter",
+        MenuType = "Yatay",
+        BaseFontSize = 14
+    };
+    private ContactInfo contactInfo = new ContactInfo
+    {
+        Email = "",
+        Phone1 = "+90 555 000 00 00"
+    };
 
+    private string siteDescription = "";
+    private string? errorMessage = null;
+    private string? successMessage = null;
+    private bool isLoading = false;
+    private string loadingMessage = "";
+    private bool isDomainChecking = false;
+    private bool isDomainAvailable = true;
+    private System.Threading.Timer? domainCheckTimer;
+
+    // Site adý deðiþtiðinde domain'i otomatik oluþtur
+    private void OnSiteNameChanged(string value)
+    {
+        newTenant.SiteName = value;
+        
+        // Domain boþsa veya site adýndan üretilmiþse, yeniden üret
+        if (string.IsNullOrWhiteSpace(newTenant.Domain) || 
+            newTenant.Domain.EndsWith(".localhost"))
+        {
+            newTenant.Domain = CreateSlug(value) + ".localhost";
+            CheckDomainAvailability(newTenant.Domain);
+        }
+    }
+
+    // Domain input deðiþtiðinde
+    private void OnDomainInputChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? "";
+        newTenant.Domain = value;
+        CheckDomainAvailability(value);
+    }
+
+    // Slug oluþturma (EditPage.razor'dan)
+    private string CreateSlug(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+
+        string slug = text.ToLowerInvariant();
+
+        // Türkçe karakterleri deðiþtir
+        slug = slug.Replace("ý", "i")
+                   .Replace("ð", "g")
+                   .Replace("ü", "u")
+                   .Replace("þ", "s")
+                   .Replace("ö", "o")
+                   .Replace("ç", "c")
+                   .Replace("Ý", "i");
+
+        // Geçersiz karakterleri sil
+        slug = Regex.Replace(slug, @"[^a-z0-9\s-]", "");
+
+        // Boþluklarý tire ile deðiþtir
+        slug = Regex.Replace(slug, @"\s+", "-").Trim('-');
+        slug = Regex.Replace(slug, @"-+", "-");
+
+        return slug;
+    }
+
+    // Domain müsaitlik kontrolü (debounced)
+    private void CheckDomainAvailability(string domain)
+    {
+        if (string.IsNullOrWhiteSpace(domain)) return;
+
+        domainCheckTimer?.Dispose();
+        isDomainChecking = true;
+
+        domainCheckTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                try
+                {
+                    using var context = DbFactory.CreateDbContext();
+                    isDomainAvailable = !await context.Tenants
+                        .AnyAsync(t => t.Domain.ToLower() == domain.ToLower());
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Domain kontrol hatasý: {ex.Message}");
+                    isDomainAvailable = true;
+                }
+                finally
+                {
+                    isDomainChecking = false;
+                    StateHasChanged();
+                }
+            });
+        }, null, 500, Timeout.Infinite);
+    }
+
+    // Domain CSS class
+    private string GetFullDomainClass()
+    {
+        var baseClass = "form-control";
+        if (string.IsNullOrEmpty(newTenant.Domain)) return baseClass;
+        if (isDomainChecking) return $"{baseClass} border-warning";
+        return isDomainAvailable ? $"{baseClass} border-success" : $"{baseClass} border-danger";
+    }
+
+    // Form validation
+    private bool IsFormValid()
+    {
+        return !string.IsNullOrWhiteSpace(newTenant.SiteName) &&
+               !string.IsNullOrWhiteSpace(newTenant.Domain) &&
+               !string.IsNullOrWhiteSpace(newTenant.Category) &&
+               isDomainAvailable &&
+               !isDomainChecking;
+    }
+
+    // Form gönderme
     private async Task HandleValidSubmit()
     {
-        // 1. Siteyi (Tenant) Kaydet
-        newTenant.IsActive = true;
-        DbContext.Tenants.Add(newTenant);
+        if (!IsFormValid()) return;
 
-        // Ã–nce Tenant'Ä± kaydediyoruz ki bir ID'si olsun (SQL Identity)
-        await DbContext.SaveChangesAsync();
+        isLoading = true;
+        errorMessage = null;
+        successMessage = null;
 
-        // 2. VarsayÄ±lan TEMA AyarlarÄ±nÄ± OluÅŸtur (Ä°liÅŸkili KayÄ±t)
-        var defaultTheme = new ThemeSettings
+        try
         {
-            TenantId = newTenant.Id, // OluÅŸan yeni ID'yi buraya baÄŸlÄ±yoruz
-            PrimaryColor = "#0d6efd", // VarsayÄ±lan Mavi
-            SecondaryColor = "#6c757d",
-            HeaderBgColor = "#ffffff",
-            FontFamily = "Inter",
-            MenuType = "Yatay",
-            BaseFontSize = 14
-        };
-        DbContext.ThemeSettings.Add(defaultTheme);
+            loadingMessage = "Site oluþturuluyor...";
+            StateHasChanged();
+            await Task.Delay(300);
 
-        // 3. BoÅŸ Ä°LETÄ°ÅžÄ°M KaydÄ± OluÅŸtur
-        var defaultContact = new ContactInfo
+            using var context = DbFactory.CreateDbContext();
+
+            // Domain tekrar kontrol et
+            var domainExists = await context.Tenants
+                .AnyAsync(t => t.Domain.ToLower() == newTenant.Domain.ToLower());
+
+            if (domainExists)
+            {
+                errorMessage = "Bu domain zaten kullanýlýyor. Lütfen farklý bir domain deneyin.";
+                isLoading = false;
+                return;
+            }
+
+            // 1. Tenant oluþtur
+            newTenant.IsActive = true;
+            context.Tenants.Add(newTenant);
+
+            loadingMessage = "Site kaydediliyor...";
+            StateHasChanged();
+            await context.SaveChangesAsync();
+
+            // 2. Tema ayarlarý
+            loadingMessage = "Tema ayarlarý yapýlandýrýlýyor...";
+            StateHasChanged();
+            themeSettings.TenantId = newTenant.Id;
+            context.ThemeSettings.Add(themeSettings);
+
+            // 3. Ýletiþim bilgileri
+            loadingMessage = "Ýletiþim bilgileri kaydediliyor...";
+            StateHasChanged();
+            contactInfo.TenantId = newTenant.Id;
+            if (string.IsNullOrEmpty(contactInfo.Email))
+            {
+                contactInfo.Email = "info@" + newTenant.Domain;
+            }
+            context.ContactInfos.Add(contactInfo);
+
+            await context.SaveChangesAsync();
+
+            loadingMessage = "Tamamlandý!";
+            successMessage = $"'{newTenant.SiteName}' baþarýyla oluþturuldu! Yönlendiriliyorsunuz...";
+            StateHasChanged();
+
+            await Task.Delay(1500);
+            NavManager.NavigateTo("/sites");
+        }
+        catch (Exception ex)
         {
-            TenantId = newTenant.Id,
-            Email = "info@" + newTenant.Domain, // Otomatik e-posta taslaÄŸÄ±
-            Phone1 = "+90 555 000 00 00"
-        };
-        DbContext.ContactInfos.Add(defaultContact);
-
-        // Hepsini veritabanÄ±na iÅŸle
-        await DbContext.SaveChangesAsync();
-
-        // Listeye geri dÃ¶n
-        NavManager.NavigateTo("/sites");
+            errorMessage = $"Site oluþturulurken bir hata oluþtu: {ex.Message}";
+            Console.WriteLine($"CreateSite Error: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+            loadingMessage = "";
+            StateHasChanged();
+        }
     }
 
     private void GoBack()
     {
         NavManager.NavigateTo("/sites");
+    }
+
+    // Kategori yardýmcý metodlarý
+    private string GetCategoryDisplayName(string category) => category switch
+    {
+        "Egitim" => "?? Eðitim Kurumu",
+        "Kurumsal" => "?? Kurumsal Firma",
+        "Eticaret" => "?? E-Ticaret",
+        "Blog" => "?? Blog / Haber",
+        _ => category
+    };
+
+    private string GetCategoryDescription(string category) => category switch
+    {
+        "Egitim" => "Okullar, kurslar ve eðitim kurumlarý için özel tasarlanmýþ þablon.",
+        "Kurumsal" => "Þirketler ve kurumsal firmalar için profesyonel web sitesi þablonu.",
+        "Eticaret" => "Online maðazalar için ürün satýþý odaklý e-ticaret þablonu.",
+        "Blog" => "Ýçerik üreticileri ve haber siteleri için blog þablonu.",
+        _ => ""
+    };
+
+    private List<string> GetCategoryFeatures(string category) => category switch
+    {
+        "Egitim" => new List<string> { "Kurs Listesi", "Öðretmen Kadrosu", "Baþarý Hikâyeleri", "Ýletiþim Formu" },
+        "Kurumsal" => new List<string> { "Hizmetler", "Hakkýmýzda", "Referanslar", "Ýletiþim" },
+        "Eticaret" => new List<string> { "Ürün Kataloðu", "Sepet Sistemi", "Ödeme Entegrasyonu", "Sipariþ Takibi" },
+        "Blog" => new List<string> { "Makale Sistemi", "Kategoriler", "Etiketler", "Yorum Sistemi" },
+        _ => new List<string>()
+    };
+
+    public void Dispose()
+    {
+        domainCheckTimer?.Dispose();
     }
 }

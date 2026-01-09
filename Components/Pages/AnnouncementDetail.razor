@@ -1,0 +1,512 @@
+@page "/view/{pageSlug}/duyuru/{announcementId:int}"
+@page "/view/{pageSlug}/haber/{announcementId:int}"
+@using CoreBuilder.Entities
+@using CoreBuilder.Data
+@using Microsoft.EntityFrameworkCore
+@using System.Text.Json
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject NavigationManager NavManager
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<style>
+    .detail-page {
+        background-color: #f8f9fa;
+        min-height: 100vh;
+    }
+
+    .social-sidebar {
+        position: fixed;
+        left: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .social-sidebar a {
+        width: 45px;
+        height: 45px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        color: white;
+        font-size: 1.2rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+        text-decoration: none;
+    }
+
+    .social-sidebar a:hover {
+        transform: scale(1.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .social-sidebar .facebook { background: #1877f2; }
+    .social-sidebar .twitter { background: #000; }
+    .social-sidebar .linkedin { background: #0077b5; }
+    .social-sidebar .whatsapp { background: #25d366; }
+    .social-sidebar .copy-link { background: #6c757d; }
+
+    .hero-image {
+        width: 100%;
+        max-height: 500px;
+        object-fit: cover;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    }
+
+    .content-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+        padding: 2.5rem;
+        margin-top: -80px;
+        position: relative;
+        z-index: 10;
+    }
+
+    .date-badge {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        padding: 8px 20px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-block;
+        margin-bottom: 1rem;
+    }
+
+    .detail-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        line-height: 1.3;
+        margin-bottom: 1.5rem;
+    }
+
+    .detail-content {
+        font-size: 1.1rem;
+        line-height: 1.8;
+        color: #444;
+    }
+
+    .detail-content p {
+        margin-bottom: 1.5rem;
+    }
+
+    .gallery-section {
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 1px solid #eee;
+    }
+
+    .gallery-section h5 {
+        color: #1a1a2e;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+    }
+
+    .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+
+    .gallery-item {
+        border-radius: 8px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .gallery-item:hover {
+        transform: scale(1.05);
+    }
+
+    .gallery-item img {
+        width: 100%;
+        height: 120px;
+        object-fit: cover;
+    }
+
+    .other-news-section {
+        background: white;
+        padding: 3rem 0;
+        margin-top: 3rem;
+    }
+
+    .other-news-section h4 {
+        color: #1a1a2e;
+        font-weight: 700;
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+
+    .news-card {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+        transition: transform 0.2s, box-shadow 0.2s;
+        height: 100%;
+    }
+
+    .news-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+
+    .news-card img {
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+    }
+
+    .news-card-body {
+        padding: 1.25rem;
+    }
+
+    .news-card-date {
+        font-size: 0.8rem;
+        color: #888;
+        margin-bottom: 0.5rem;
+    }
+
+    .news-card-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    @@media (max-width: 768px) {
+        .social-sidebar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            top: auto;
+            transform: none;
+            flex-direction: row;
+            justify-content: center;
+            background: white;
+            padding: 10px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+
+        .social-sidebar a {
+            width: 40px;
+            height: 40px;
+        }
+
+        .content-card {
+            margin-top: -40px;
+            padding: 1.5rem;
+        }
+
+        .detail-title {
+            font-size: 1.5rem;
+        }
+
+        .detail-content {
+            font-size: 1rem;
+        }
+    }
+</style>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center" style="height:50vh">
+        <div class="spinner-border text-primary" style="width:3rem;height:3rem"></div>
+    </div>
+}
+else if (currentAnnouncement == null)
+{
+    <div class="container py-5">
+        <div class="alert alert-warning text-center py-5">
+            <h4><i class="fa-solid fa-exclamation-triangle me-2"></i>Ýçerik Bulunamadý</h4>
+            <p class="text-muted">Aradýðýnýz duyuru veya haber bulunamadý.</p>
+            <a href="/view/@PageSlug" class="btn btn-primary mt-3">
+                <i class="fa-solid fa-arrow-left me-2"></i>Geri Dön
+            </a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="detail-page">
+        <!-- Sosyal Medya Sidebar -->
+        <div class="social-sidebar d-none d-lg-flex">
+            <a href="https://www.facebook.com/sharer/sharer.php?u=@Uri.EscapeDataString(currentUrl)" target="_blank" class="facebook" title="Facebook'ta Paylaþ">
+                <i class="fa-brands fa-facebook-f"></i>
+            </a>
+            <a href="https://twitter.com/intent/tweet?url=@Uri.EscapeDataString(currentUrl)&text=@Uri.EscapeDataString(currentAnnouncement.Title)" target="_blank" class="twitter" title="X'te Paylaþ">
+                <i class="fa-brands fa-x-twitter"></i>
+            </a>
+            <a href="https://www.linkedin.com/shareArticle?mini=true&url=@Uri.EscapeDataString(currentUrl)&title=@Uri.EscapeDataString(currentAnnouncement.Title)" target="_blank" class="linkedin" title="LinkedIn'de Paylaþ">
+                <i class="fa-brands fa-linkedin-in"></i>
+            </a>
+            <a href="https://wa.me/?text=@Uri.EscapeDataString(currentAnnouncement.Title + " " + currentUrl)" target="_blank" class="whatsapp" title="WhatsApp'ta Paylaþ">
+                <i class="fa-brands fa-whatsapp"></i>
+            </a>
+            <a href="javascript:void(0)" @onclick="CopyLink" class="copy-link" title="Linki Kopyala">
+                <i class="fa-solid fa-link"></i>
+            </a>
+        </div>
+
+        <!-- Hero Görsel -->
+        <div class="container-fluid px-0">
+            @if (!string.IsNullOrEmpty(currentAnnouncement.ImageUrl))
+            {
+                <div class="px-3 px-lg-5 pt-4">
+                    <img src="@currentAnnouncement.ImageUrl" alt="@currentAnnouncement.Title" class="hero-image">
+                </div>
+            }
+        </div>
+
+        <!-- Ýçerik Kartý -->
+        <div class="container" style="max-width: 900px;">
+            <div class="content-card">
+                <div class="date-badge">
+                    <i class="fa-solid fa-calendar me-2"></i>@DateTime.Now.ToString("dd MMMM yyyy", new System.Globalization.CultureInfo("tr-TR"))
+                </div>
+
+                <h1 class="detail-title">@currentAnnouncement.Title</h1>
+
+                <div class="detail-content">
+                    @if (!string.IsNullOrEmpty(currentAnnouncement.Content))
+                    {
+                        @((MarkupString)currentAnnouncement.Content.Replace("\n", "<br/>"))
+                    }
+                    else if (!string.IsNullOrEmpty(currentAnnouncement.Summary))
+                    {
+                        <p>@currentAnnouncement.Summary</p>
+                    }
+                </div>
+
+                <!-- Fotoðraf Galerisi -->
+                @if (currentAnnouncement.GalleryImages != null && currentAnnouncement.GalleryImages.Any())
+                {
+                    <div class="gallery-section">
+                        <h5><i class="fa-solid fa-images me-2"></i>Fotoðraflar</h5>
+                        <div class="gallery-grid">
+                            @foreach (var img in currentAnnouncement.GalleryImages)
+                            {
+                                <div class="gallery-item" @onclick="() => OpenImage(img)">
+                                    <img src="@img" alt="Galeri">
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Diðer Haberler/Duyurular -->
+        @if (otherItems != null && otherItems.Any())
+        {
+            <div class="other-news-section">
+                <div class="container">
+                    <h4><i class="fa-solid fa-newspaper me-2"></i>Diðer @(isNews ? "Haberler" : "Duyurular")</h4>
+                    <div class="row g-4">
+                        @foreach (var item in otherItems.Take(4))
+                        {
+                            <div class="col-6 col-md-3">
+                                <a href="/view/@PageSlug/@(isNews ? "haber" : "duyuru")/@item.Id" class="text-decoration-none">
+                                    <div class="news-card">
+                                        @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                        {
+                                            <img src="@item.ImageUrl" alt="@item.Title">
+                                        }
+                                        else
+                                        {
+                                            <div style="height:180px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+                                        }
+                                        <div class="news-card-body">
+                                            <div class="news-card-date">
+                                                <i class="fa-solid fa-calendar me-1"></i>@DateTime.Now.AddDays(-Random.Shared.Next(1, 30)).ToString("dd MMMM yyyy", new System.Globalization.CultureInfo("tr-TR"))
+                                            </div>
+                                            <div class="news-card-title">@item.Title</div>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Mobil Sosyal Medya Bar -->
+        <div class="social-sidebar d-flex d-lg-none">
+            <a href="https://www.facebook.com/sharer/sharer.php?u=@Uri.EscapeDataString(currentUrl)" target="_blank" class="facebook">
+                <i class="fa-brands fa-facebook-f"></i>
+            </a>
+            <a href="https://twitter.com/intent/tweet?url=@Uri.EscapeDataString(currentUrl)&text=@Uri.EscapeDataString(currentAnnouncement.Title)" target="_blank" class="twitter">
+                <i class="fa-brands fa-x-twitter"></i>
+            </a>
+            <a href="https://www.linkedin.com/shareArticle?mini=true&url=@Uri.EscapeDataString(currentUrl)" target="_blank" class="linkedin">
+                <i class="fa-brands fa-linkedin-in"></i>
+            </a>
+            <a href="https://wa.me/?text=@Uri.EscapeDataString(currentAnnouncement.Title + " " + currentUrl)" target="_blank" class="whatsapp">
+                <i class="fa-brands fa-whatsapp"></i>
+            </a>
+            <a href="javascript:void(0)" @onclick="CopyLink" class="copy-link">
+                <i class="fa-solid fa-link"></i>
+            </a>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string PageSlug { get; set; }
+    [Parameter] public int AnnouncementId { get; set; }
+
+    private AnnouncementDetailDto currentAnnouncement;
+    private List<AnnouncementDetailDto> otherItems = new();
+    private bool isLoading = true;
+    private bool isNews = false;
+    private string currentUrl = "";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        currentAnnouncement = null;
+        otherItems = new();
+        StateHasChanged();
+
+        try
+        {
+            currentUrl = NavManager.Uri;
+            isNews = currentUrl.Contains("/haber/");
+
+            using var context = DbFactory.CreateDbContext();
+            
+            // Sayfayý bul
+            var page = await context.Pages.IgnoreQueryFilters().AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Slug == PageSlug);
+
+            if (page != null && !string.IsNullOrWhiteSpace(page.ContentJson))
+            {
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var pageContent = JsonSerializer.Deserialize<PageContentData>(page.ContentJson, options);
+
+                if (pageContent != null)
+                {
+                    // Haber veya duyuru listesinden ID'ye göre bul
+                    List<AnnouncementDetailDto> allItems;
+
+                    if (isNews && pageContent.NewsItems != null)
+                    {
+                        allItems = pageContent.NewsItems.Select((n, index) => new AnnouncementDetailDto
+                        {
+                            Id = index + 1,
+                            Title = n.Title,
+                            Summary = n.Summary,
+                            Content = n.Content,
+                            ImageUrl = n.ImageUrl,
+                            LinkUrl = n.LinkUrl,
+                            GalleryImages = n.GalleryImages
+                        }).ToList();
+                    }
+                    else if (pageContent.Announcements != null)
+                    {
+                        allItems = pageContent.Announcements.Select((a, index) => new AnnouncementDetailDto
+                        {
+                            Id = index + 1,
+                            Title = a.Title,
+                            Content = a.Content,
+                            ImageUrl = a.ImageUrl,
+                            LinkUrl = a.LinkUrl,
+                            GalleryImages = a.GalleryImages
+                        }).ToList();
+                    }
+                    else
+                    {
+                        allItems = new();
+                    }
+
+                    currentAnnouncement = allItems.FirstOrDefault(x => x.Id == AnnouncementId);
+                    otherItems = allItems.Where(x => x.Id != AnnouncementId).ToList();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task CopyLink()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", currentUrl);
+            await JSRuntime.InvokeVoidAsync("alert", "Link kopyalandý!");
+        }
+        catch { }
+    }
+
+    private async Task OpenImage(string imageUrl)
+    {
+        await JSRuntime.InvokeVoidAsync("window.open", imageUrl, "_blank");
+    }
+
+    public class PageContentData
+    {
+        public string PageType { get; set; } = "Standard";
+        public bool HasSlider { get; set; }
+        public bool HasNews { get; set; }
+        public List<NewsItemDto> NewsItems { get; set; } = new();
+        public bool HasAnnouncements { get; set; }
+        public List<AnnouncementItemDto> Announcements { get; set; } = new();
+        public bool HasGallery { get; set; }
+        public string HtmlContent { get; set; } = "";
+    }
+
+    public class NewsItemDto
+    {
+        public string Title { get; set; }
+        public string Summary { get; set; }
+        public string ImageUrl { get; set; }
+        public string LinkUrl { get; set; }
+        public string Content { get; set; }
+        public List<string> GalleryImages { get; set; }
+    }
+
+    public class AnnouncementItemDto
+    {
+        public string Title { get; set; }
+        public string ImageUrl { get; set; }
+        public string LinkUrl { get; set; }
+        public string Content { get; set; }
+        public List<string> GalleryImages { get; set; }
+    }
+
+    public class AnnouncementDetailDto
+    {
+        public int Id { get; set; }
+        public string Title { get; set; }
+        public string Summary { get; set; }
+        public string Content { get; set; }
+        public string ImageUrl { get; set; }
+        public string LinkUrl { get; set; }
+        public List<string> GalleryImages { get; set; }
+    }
+}

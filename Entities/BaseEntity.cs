@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace CoreBuilder.Entities
+﻿namespace CoreBuilder.Entities
 {
     public abstract class BaseEntity
     {

@@ -1,0 +1,234 @@
+﻿@page "/view/on-kayit"
+@using System.ComponentModel.DataAnnotations
+@using CoreBuilder.Entities
+@using CoreBuilder.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@rendermode InteractiveServer
+
+<PageTitle>Ön Kayıt - Sınav Kurs</PageTitle>
+
+<style>
+    /* ... (CSS kodları aynen kalacak) ... */
+    .form-container {
+        background-color: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        border-top: 5px solid #E31E24;
+    }
+
+    .form-header {
+        color: #1F3A60;
+        font-weight: 800;
+    }
+
+    .btn-submit {
+        background-color: #E31E24;
+        color: white;
+        padding: 12px;
+        font-weight: bold;
+        text-transform: uppercase;
+        border: none;
+        transition: all 0.3s;
+    }
+
+        .btn-submit:hover {
+            background-color: #c4191e;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+    .form-label {
+        font-weight: 600;
+        color: #333;
+    }
+
+    /* TUZAK ALANI GİZLEMEK İÇİN */
+    .hp-field {
+        display: none;
+        opacity: 0;
+        position: absolute;
+        left: -9999px;
+    }
+</style>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="text-center mb-5">
+                <h2 class="form-header display-6">ÖN KAYIT OLUŞTUR</h2>
+                <p class="text-muted fs-5">Erken kayıt avantajlarından yararlanmak için formu doldurun, sizi arayalım.</p>
+            </div>
+
+            <div class="form-container p-4 p-md-5">
+                @if (isSubmitted)
+                {
+                    <div class="alert alert-success text-center py-5">
+                        <i class="fa-solid fa-circle-check fa-4x mb-3 text-success"></i>
+                        <h4>Teşekkürler!</h4>
+                        <p>Kaydınız başarıyla alınmıştır. Eğitim danışmanlarımız en kısa sürede <strong>@model.Phone</strong> numarasından sizinle iletişime geçecektir.</p>
+                        <button class="btn btn-outline-success mt-3" @onclick="ResetForm">Yeni Kayıt Oluştur</button>
+                    </div>
+                }
+                else
+                {
+                    if (isError)
+                    {
+                        <div class="alert alert-danger text-center">
+                            Bir hata oluştu veya işleminiz güvenlik nedeniyle reddedildi.
+                        </div>
+                    }
+
+                    <EditForm Model="@model" OnValidSubmit="HandleSubmit">
+                        <DataAnnotationsValidator />
+
+                        <div class="hp-field">
+                            <label>Lütfen bu alanı boş bırakın</label>
+                            <InputText @bind-Value="model.Honeypot" />
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Öğrenci Adı Soyadı</label>
+                                <InputText @bind-Value="model.FullName" class="form-control form-control-lg" placeholder="Ad Soyad giriniz" />
+                                <ValidationMessage For="@(() => model.FullName)" class="text-danger small" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Veli Telefon Numarası</label>
+                                <InputText @bind-Value="model.Phone" class="form-control form-control-lg" placeholder="05XX XXX XX XX" />
+                                <ValidationMessage For="@(() => model.Phone)" class="text-danger small" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Sınıf / Kurs</label>
+                                <InputSelect @bind-Value="model.Grade" class="form-select form-select-lg">
+                                    <option value="">Seçiniz...</option>
+                                    <option value="LGS">LGS Hazırlık (8. Sınıf)</option>
+                                    <option value="TYT-AYT">YKS Hazırlık (TYT-AYT)</option>
+                                    <option value="Ara Sinif">Ara Sınıf Takviye (9-10-11)</option>
+                                    <option value="Mezun">Mezun Grubu</option>
+                                    <option value="Diger">Diğer</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => model.Grade)" class="text-danger small" />
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="form-label">Okuduğu Okul (Opsiyonel)</label>
+                                <InputText @bind-Value="model.SchoolName" class="form-control form-control-lg" placeholder="Okul adı giriniz" />
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="form-label">Notunuz / Mesajınız</label>
+                                <InputTextArea @bind-Value="model.Message" class="form-control" rows="4" placeholder="Sormak istediklerinizi yazabilirsiniz..." />
+                            </div>
+
+                            <div class="col-12 mt-4">
+                                <button type="submit" class="btn btn-submit w-100 btn-lg shadow">
+                                    <i class="fa-solid fa-paper-plane me-2"></i>KAYDI GÖNDER
+                                </button>
+                            </div>
+                        </div>
+                    </EditForm>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] public Tenant? currentTenant { get; set; }
+
+    private RegisterModel model = new();
+    private bool isSubmitted = false;
+    private bool isError = false;
+
+    // GÜVENLİK: Sayfa yüklenme zamanı
+    private DateTime loadTime;
+
+    protected override void OnInitialized()
+    {
+        // Sayfa ilk açıldığında zamanı tutuyoruz
+        loadTime = DateTime.Now;
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            // 1. GÜVENLİK KONTROLÜ: HONEYPOT
+            // Eğer gizli alan doluysa, bunu bir bot yapmıştır.
+            if (!string.IsNullOrEmpty(model.Honeypot))
+            {
+                // Bot olduğunu anladık, işlemi sessizce bitiriyoruz veya hata veriyoruz.
+                Console.WriteLine("SPAM TESPİT EDİLDİ: Honeypot dolu.");
+                return;
+            }
+
+            // 2. GÜVENLİK KONTROLÜ: SÜRE (Hız Sınırı)
+            // Form yükleneli 2 saniyeden az olmuşsa, insan bu kadar hızlı yazamaz.
+            if ((DateTime.Now - loadTime).TotalSeconds < 2)
+            {
+                Console.WriteLine("SPAM TESPİT EDİLDİ: Çok hızlı gönderim.");
+                return;
+            }
+
+            if (currentTenant == null)
+            {
+                isError = true;
+                return;
+            }
+
+            var newRegistration = new StudentRegistration
+            {
+                TenantId = currentTenant.Id,
+                FullName = model.FullName,
+                Phone = model.Phone,
+                Grade = model.Grade,
+                SchoolName = model.SchoolName,
+                Message = model.Message,
+                CreatedAt = DateTime.Now,
+                IsProcessed = false
+            };
+
+            DbContext.StudentRegistrations.Add(newRegistration);
+            await DbContext.SaveChangesAsync();
+
+            isSubmitted = true;
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Kayıt hatası: {ex.Message}");
+            isError = true;
+        }
+    }
+
+    private void ResetForm()
+    {
+        model = new();
+        isSubmitted = false;
+        isError = false;
+        loadTime = DateTime.Now; // Süreyi sıfırla
+    }
+
+    public class RegisterModel
+    {
+        [Required(ErrorMessage = "Ad Soyad alanı zorunludur.")]
+        [MinLength(3, ErrorMessage = "Lütfen geçerli bir isim giriniz.")]
+        public string FullName { get; set; } = "";
+
+        [Required(ErrorMessage = "Telefon numarası zorunludur.")]
+        [Phone(ErrorMessage = "Geçerli bir telefon numarası giriniz.")]
+        public string Phone { get; set; } = "";
+
+        [Required(ErrorMessage = "Lütfen bir sınıf/kurs seçiniz.")]
+        public string Grade { get; set; } = "";
+
+        public string SchoolName { get; set; } = "";
+        public string Message { get; set; } = "";
+
+        // TUZAK ALAN (Veritabanına kaydedilmeyecek)
+        public string Honeypot { get; set; } = "";
+    }
+}

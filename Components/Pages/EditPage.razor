@@ -23,11 +23,17 @@
             </span>
         </div>
         <div class="d-flex gap-2">
+            @if (pageModel.Id != 0 && !string.IsNullOrEmpty(pageModel.Slug))
+            {
+                <button type="button" class="btn btn-outline-info shadow-sm" @onclick="OpenPreview">
+                    <i class="fa-solid fa-eye me-2"></i>Siteyi Önizle
+                </button>
+            }
             <button class="btn btn-light border shadow-sm" @onclick="GoBack">
                 <i class="fa-solid fa-arrow-left me-2"></i>Geri
             </button>
             <button class="btn btn-primary shadow-sm px-4" @onclick="HandleSubmit">
-                <i class="fa-solid fa-save me-2"></i>Kaydet & Yayınla
+                <i class="fa-solid fa-save me-2"></i>Kaydet &amp; Yayınla
             </button>
         </div>
     </div>
@@ -62,7 +68,6 @@
 
                             <div class="mb-3">
                                 <label class="form-label fw-bold small">Sayfa Başlığı</label>
-                                @* DÜZELTME: ValueChanged olayı ile yazarken link üretmesini sağladık *@
                                 <InputText class="form-control"
                                            Value="@pageModel.Title"
                                            ValueExpression="@(() => pageModel.Title)"
@@ -126,106 +131,13 @@
 
                     @if (pageData.PageType == "Contact")
                     {
-                        @* --- İLETİŞİM FORMU AYNI KALDI --- *@
                         <div class="alert alert-primary shadow-sm mb-4">
                             <i class="fa-solid fa-info-circle me-2"></i>
                             <strong>İletişim Modu:</strong> Sadece doldurduğunuz alanlar sitede yayınlanacaktır.
                         </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="card shadow-sm border-0 mb-4 h-100">
-                                    <div class="card-header bg-primary text-white fw-bold"><i class="fa-solid fa-phone me-2"></i>İletişim Bilgileri</div>
-                                    <div class="card-body">
-                                        <h6 class="small fw-bold text-muted mb-2">Telefon Numaraları</h6>
-                                        <div class="mb-3">
-                                            <div class="input-group mb-2">
-                                                <span class="input-group-text bg-light">Etiket</span>
-                                                <input type="text" class="form-control" @bind="pageData.Contact.PhoneLabel1" placeholder="Örn: Ofis" />
-                                                <input type="text" class="form-control" @bind="pageData.Contact.Phone1" placeholder="+90 555..." />
-                                            </div>
-                                            <div class="input-group mb-2">
-                                                <span class="input-group-text bg-light">Etiket</span>
-                                                <input type="text" class="form-control" @bind="pageData.Contact.PhoneLabel2" placeholder="Örn: WhatsApp" />
-                                                <input type="text" class="form-control" @bind="pageData.Contact.Phone2" placeholder="+90 555..." />
-                                            </div>
-                                        </div>
-                                        <hr />
-                                        <h6 class="small fw-bold text-muted mb-2">E-Posta Adresleri</h6>
-                                        <div class="input-group mb-2">
-                                            <span class="input-group-text bg-light"><i class="fa-solid fa-envelope"></i></span>
-                                            <input type="text" class="form-control" @bind="pageData.Contact.Email1" placeholder="info@site.com" />
-                                        </div>
-                                        <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="fa-solid fa-envelope"></i></span>
-                                            <input type="text" class="form-control" @bind="pageData.Contact.Email2" placeholder="ik@site.com" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-6">
-                                <div class="card shadow-sm border-0 mb-4 h-100">
-                                    <div class="card-header bg-danger text-white fw-bold"><i class="fa-solid fa-map-location-dot me-2"></i>Google Harita</div>
-                                    <div class="card-body">
-                                        <div class="mb-3">
-                                            <label class="small fw-bold">Google Maps Embed Kodu</label>
-                                            <textarea class="form-control small text-muted" rows="4" @bind="pageData.Contact.MapEmbedCode" placeholder="<iframe src='...' ...></iframe>"></textarea>
-                                        </div>
-                                        @if (!string.IsNullOrEmpty(pageData.Contact.MapEmbedCode))
-                                        {
-                                            <div class="ratio ratio-16x9 border rounded bg-light">
-                                                @((MarkupString)pageData.Contact.MapEmbedCode)
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <div class="ratio ratio-16x9 border rounded bg-light d-flex align-items-center justify-content-center text-muted">
-                                                Harita Önizleme
-                                            </div>
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-6">
-                                <div class="card shadow-sm border-0 mb-4">
-                                    <div class="card-header bg-info text-white fw-bold"><i class="fa-solid fa-location-dot me-2"></i>Adres Detayları</div>
-                                    <div class="card-body">
-                                        <textarea class="form-control mb-2" rows="3" @bind="pageData.Contact.AddressText" placeholder="Açık adres..."></textarea>
-                                        <div class="row g-2">
-                                            <div class="col-6"><input type="text" class="form-control" @bind="pageData.Contact.City" placeholder="İl" /></div>
-                                            <div class="col-6"><input type="text" class="form-control" @bind="pageData.Contact.District" placeholder="İlçe" /></div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="card shadow-sm border-0 mb-4">
-                                    <div class="card-header bg-warning text-dark fw-bold"><i class="fa-solid fa-clock me-2"></i>Çalışma Saatleri</div>
-                                    <div class="card-body">
-                                        <div class="row g-2">
-                                            <div class="col-6"><label class="small fw-bold">Günler</label><input type="text" class="form-control" @bind="pageData.Contact.WorkingDays" placeholder="Pzt - Cmt" /></div>
-                                            <div class="col-6"><label class="small fw-bold">Saatler</label><input type="text" class="form-control" @bind="pageData.Contact.WorkingHours" placeholder="08:30 - 19:00" /></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-6">
-                                <div class="card shadow-sm border-0 mb-4">
-                                    <div class="card-header bg-dark text-white fw-bold"><i class="fa-solid fa-share-nodes me-2"></i>Sosyal Medya</div>
-                                    <div class="card-body">
-                                        <div class="input-group mb-2"><span class="input-group-text text-success"><i class="fa-brands fa-whatsapp"></i></span><input type="text" class="form-control" @bind="pageData.Contact.Whatsapp" placeholder="Tel No" /></div>
-                                        <div class="input-group mb-2"><span class="input-group-text text-danger"><i class="fa-brands fa-instagram"></i></span><input type="text" class="form-control" @bind="pageData.Contact.Instagram" placeholder="kullaniciadi" /></div>
-                                        <div class="input-group mb-2"><span class="input-group-text text-primary"><i class="fa-brands fa-facebook"></i></span><input type="text" class="form-control" @bind="pageData.Contact.Facebook" placeholder="kullaniciadi" /></div>
-                                        <div class="input-group"><span class="input-group-text text-info"><i class="fa-brands fa-twitter"></i></span><input type="text" class="form-control" @bind="pageData.Contact.Twitter" placeholder="kullaniciadi" /></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     }
                     else
                     {
-                        @* --- STANDART SAYFA MODÜLLERİ --- *@
                         <div class="card shadow-sm border-0 mb-4">
                             <div class="card-body">
                                 <h6 class="fw-bold small text-muted mb-3 text-uppercase">Sayfaya Özellik Ekle</h6>
@@ -256,17 +168,59 @@
                                 <div class="card-header bg-white"><h6 class="text-primary fw-bold mb-0">Slider</h6></div>
                                 <div class="card-body bg-light">
                                     <div class="row g-2 mb-3 align-items-end">
-                                        <div class="col-md-4"><label class="small fw-bold">Görsel</label><InputFile OnChange="@(e => UploadFiles(e, "slider"))" class="form-control form-control-sm" /></div>
+                                        <div class="col-md-3"><label class="small fw-bold">Görsel / Video</label><InputFile OnChange="@(e => UploadFiles(e, "slider"))" class="form-control form-control-sm" /></div>
                                         <div class="col-md-3"><label class="small fw-bold">Başlık</label><input type="text" class="form-control form-control-sm" @bind="tempSlider.Title" /></div>
-                                        <div class="col-md-3"><label class="small fw-bold">Link</label><input type="text" class="form-control form-control-sm" @bind="tempSlider.LinkUrl" /></div>
-                                        <div class="col-md-2"><button type="button" class="btn btn-sm btn-primary w-100" @onclick="AddSliderItem">Ekle</button></div>
+                                        <div class="col-md-4">
+                                            <label class="small fw-bold">Link (URL - Opsiyonel)</label>
+                                            <input type="text" class="form-control form-control-sm" @bind="tempSlider.LinkUrl" placeholder="https://" />
+                                        </div>
+                                        <div class="col-md-2">
+                                            @if (editingSliderIndex.HasValue)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-success w-100" @onclick="SaveSliderEdit"><i class="fa-solid fa-check me-1"></i>Kaydet</button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="btn btn-sm btn-primary w-100" @onclick="AddSliderItem">Ekle</button>
+                                            }
+                                        </div>
                                     </div>
+
+                                    @if (isUploading)
+                                    {
+                                        <div class="text-primary small mb-2">
+                                            <span class="spinner-border spinner-border-sm me-1"></span> @uploadStatus
+                                        </div>
+                                    }
+
+                                    @if (editingSliderIndex.HasValue)
+                                    {
+                                        <div class="alert alert-info py-2 mb-3">
+                                            <i class="fa-solid fa-pen me-2"></i>Düzenleme modu aktif.
+                                            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" @onclick="CancelSliderEdit">İptal</button>
+                                        </div>
+                                    }
                                     <div class="list-group">
-                                        @foreach (var item in pageData.Sliders)
+                                        @for (int i = 0; i < pageData.Sliders.Count; i++)
                                         {
-                                            <div class="list-group-item d-flex justify-content-between align-items-center">
-                                                <div class="d-flex align-items-center"><img src="@item.ImageUrl" style="width: 40px; height: 30px; object-fit:cover;" class="me-2" /> @item.Title</div>
-                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => pageData.Sliders.Remove(item)">&times;</button>
+                                            var index = i;
+                                            var item = pageData.Sliders[index];
+                                            <div class="list-group-item d-flex justify-content-between align-items-center @(editingSliderIndex == index ? "bg-warning bg-opacity-10 border-warning" : "")">
+                                                <div class="d-flex align-items-center">
+                                                    @if (IsVideo(item.ImageUrl))
+                                                    {
+                                                        <video src="@item.ImageUrl" style="width: 40px; height: 30px; object-fit:cover;" class="me-2"></video>
+                                                    }
+                                                    else
+                                                    {
+                                                        <img src="@item.ImageUrl" style="width: 40px; height: 30px; object-fit:cover;" class="me-2" />
+                                                    }
+                                                    <span>@item.Title</span>
+                                                </div>
+                                                <div>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditSliderItem(index)" title="Düzenle"><i class="fa-solid fa-pen"></i></button>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => pageData.Sliders.RemoveAt(index)">&times;</button>
+                                                </div>
                                             </div>
                                         }
                                     </div>
@@ -280,15 +234,252 @@
                                 <div class="card-header bg-white"><h6 class="text-info fw-bold mb-0">Haberler</h6></div>
                                 <div class="card-body bg-light">
                                     <div class="row g-2 mb-3">
-                                        <div class="col-md-3"><InputFile OnChange="@(e => UploadFiles(e, "news"))" class="form-control form-control-sm" /></div>
-                                        <div class="col-md-4"><input type="text" class="form-control form-control-sm" @bind="tempNews.Title" placeholder="Başlık" /></div>
-                                        <div class="col-md-4"><input type="text" class="form-control form-control-sm" @bind="tempNews.Summary" placeholder="Özet" /></div>
-                                        <div class="col-md-1"><button class="btn btn-sm btn-info text-white w-100" @onclick="AddNewsItem">+</button></div>
+                                        <div class="col-md-3"><label class="small fw-bold">Görsel</label><InputFile OnChange="@(e => UploadFiles(e, "news"))" class="form-control form-control-sm" /></div>
+                                        <div class="col-md-4"><label class="small fw-bold">Başlık</label><input type="text" class="form-control form-control-sm" @bind="tempNews.Title" placeholder="Haber Başlığı" /></div>
+                                        <div class="col-md-5"><label class="small fw-bold">Özet</label><input type="text" class="form-control form-control-sm" @bind="tempNews.Summary" placeholder="Kısa Özet" /></div>
+                                        <div class="col-md-5">
+                                            <label class="small fw-bold text-muted">Link (URL - Opsiyonel)</label>
+                                            <input type="text" class="form-control form-control-sm" @bind="tempNews.LinkUrl" placeholder="https://..." />
+                                        </div>
+                                        <div class="col-md-7"><label class="small fw-bold text-muted">İçerik (Opsiyonel)</label><input type="text" class="form-control form-control-sm" @bind="tempNews.Content" placeholder="Detaylı metin..." /></div>
                                     </div>
-                                    <div class="row g-2">
-                                        @foreach (var item in pageData.NewsItems)
+
+                                    <div class="mb-3">
+                                        @if (editingNewsIndex.HasValue)
                                         {
-                                            <div class="col-md-6"><div class="border bg-white p-2 rounded d-flex align-items-center justify-content-between"><div class="d-flex align-items-center"><img src="@item.ImageUrl" style="width:40px;height:40px;object-fit:cover" class="me-2 rounded" /> <div><div class="fw-bold small">@item.Title</div><div class="small text-muted">@item.Summary</div></div></div> <button class="btn btn-sm btn-danger p-0 px-1" @onclick="() => pageData.NewsItems.Remove(item)">&times;</button></div></div>
+                                            <button type="button" class="btn btn-sm btn-success" @onclick="SaveNewsEdit"><i class="fa-solid fa-check me-1"></i>Kaydet</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" @onclick="CancelNewsEdit">İptal</button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-info text-white" @onclick="AddNewsItem">Ekle</button>
+                                        }
+                                    </div>
+
+                                    <div class="row g-2">
+                                        @for (int i = 0; i < pageData.NewsItems.Count; i++)
+                                        {
+                                            var index = i;
+                                            var item = pageData.NewsItems[index];
+                                            <div class="col-md-6">
+                                                <div class="border bg-white p-2 rounded @(editingNewsIndex == index ? "border-warning border-2" : "")">
+                                                    <div class="d-flex align-items-center justify-content-between">
+                                                        <div class="d-flex align-items-center">
+                                                            @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                                            {
+                                                                <img src="@item.ImageUrl" style="width:40px;height:40px;object-fit:cover" class="me-2 rounded" />
+                                                            }
+                                                            <div>
+                                                                <div class="fw-bold small">@item.Title</div>
+                                                                <div class="small text-muted" style="font-size:0.75rem">@item.Summary</div>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <button type="button" class="btn btn-sm btn-outline-primary me-1 p-0 px-1" @onclick="() => EditNewsItem(index)"><i class="fa-solid fa-pen"></i></button>
+                                                            <button class="btn btn-sm btn-danger p-0 px-1" @onclick="() => pageData.NewsItems.RemoveAt(index)">&times;</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @if (pageData.HasAnnouncements)
+                        {
+                            <div class="card shadow-sm border-0 mb-4 border-start border-4 border-warning">
+                                <div class="card-header bg-white"><h6 class="text-warning fw-bold mb-0">Duyurular</h6></div>
+                                <div class="card-body bg-light">
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-md-3"><label class="small fw-bold">Dosya/Görsel</label><InputFile OnChange="@(e => UploadFiles(e, "announcements"))" class="form-control form-control-sm" /></div>
+                                        <div class="col-md-4"><label class="small fw-bold">Başlık</label><input type="text" class="form-control form-control-sm" @bind="tempAnnouncement.Title" placeholder="Duyuru Başlığı" /></div>
+                                        <div class="col-md-5">
+                                            <label class="small fw-bold text-muted">Link (URL - Opsiyonel)</label>
+                                            <input type="text" class="form-control form-control-sm" @bind="tempAnnouncement.LinkUrl" placeholder="https://..." />
+                                        </div>
+                                        <div class="col-md-12"><label class="small fw-bold text-muted">İçerik (Ops.)</label><input type="text" class="form-control form-control-sm" @bind="tempAnnouncement.Content" /></div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        @if (editingAnnouncementIndex.HasValue)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-success" @onclick="SaveAnnouncementEdit"><i class="fa-solid fa-check me-1"></i>Kaydet</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" @onclick="CancelAnnouncementEdit">İptal</button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-warning" @onclick="AddAnnouncementItem">Ekle</button>
+                                        }
+                                    </div>
+
+                                    <div class="list-group">
+                                        @for (int i = 0; i < pageData.Announcements.Count; i++)
+                                        {
+                                            var index = i;
+                                            var item = pageData.Announcements[index];
+                                            <div class="list-group-item d-flex justify-content-between align-items-center @(editingAnnouncementIndex == index ? "bg-warning bg-opacity-10 border-warning" : "")">
+                                                <div class="d-flex align-items-center">
+                                                    @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                                    {
+                                                        <img src="@item.ImageUrl" style="width:40px;height:30px;object-fit:cover" class="me-2" />
+                                                    }
+                                                    <span>@item.Title</span>
+                                                </div>
+                                                <div>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditAnnouncementItem(index)"><i class="fa-solid fa-pen"></i></button>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => pageData.Announcements.RemoveAt(index)">&times;</button>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @if (pageData.HasGallery)
+                        {
+                            <div class="card shadow-sm border-0 mb-4 border-start border-4 border-success">
+                                <div class="card-header bg-white"><h6 class="text-success fw-bold mb-0">Medya Galeri</h6></div>
+                                <div class="card-body bg-light">
+                                    <!-- Ekleme/Düzenleme Formu -->
+                                    <div class="mb-4 p-3 bg-white border rounded">
+                                        <h6 class="fw-bold small text-muted mb-3">
+                                            <i class="fa-solid @(editingGalleryIndex.HasValue ? "fa-pen" : "fa-plus-circle") me-2"></i>
+                                            @(editingGalleryIndex.HasValue ? "Galeri Öğesini Düzenle" : "Yeni Öğe Ekle")
+                                        </h6>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-md-4">
+                                                <label class="small fw-bold">Görsel / Video</label>
+                                                <InputFile OnChange="@(e => UploadFiles(e, "gallery_single"))" class="form-control form-control-sm" />
+                                                @if (!string.IsNullOrEmpty(tempGallery.ImageUrl))
+                                                {
+                                                    <div class="mt-2">
+                                                        @if (IsVideo(tempGallery.ImageUrl))
+                                                        {
+                                                            <video src="@tempGallery.ImageUrl" style="height:60px; object-fit:cover;" class="rounded"></video>
+                                                        }
+                                                        else
+                                                        {
+                                                            <img src="@tempGallery.ImageUrl" style="height:60px; object-fit:cover;" class="rounded" />
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="small fw-bold">Başlık</label>
+                                                <input type="text" class="form-control form-control-sm" @bind="tempGallery.Title" placeholder="Başlık" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="small fw-bold">Açıklama</label>
+                                                <input type="text" class="form-control form-control-sm" @bind="tempGallery.Description" placeholder="Açıklama..." />
+                                            </div>
+                                        </div>
+
+                                        <!-- Sayfa Seçimi (Checkbox) -->
+                                        <div class="mb-3 p-3 bg-light border rounded">
+                                            <label class="small fw-bold text-muted mb-2 d-block">
+                                                <i class="fa-solid fa-file-lines me-1"></i> Hangi Sayfalarda Gösterilsin?
+                                            </label>
+                                            <div class="row g-2">
+                                                @foreach (var pg in allPages)
+                                                {
+                                                    var pgSlug = pg.Slug;
+                                                    var pgId = pg.Id;
+                                                    <div class="col-md-4 col-6">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox"
+                                                                   id="@($"gallery_pg_{pgId}")"
+                                                                   checked="@(tempGallery.SelectedPages?.Contains(pgSlug) ?? false)"
+                                                                   @onchange="@(e => ToggleGalleryPage(pgSlug, (bool)e.Value))" />
+                                                            <label class="form-check-label small" for="@($"gallery_pg_{pgId}")">
+                                                                @pg.Title
+                                                                @if (pg.Slug?.ToLower().Contains("galeri") == true || pg.Title?.ToLower().Contains("galeri") == true)
+                                                                {
+                                                                    <span class="badge bg-success ms-1">Ana</span>
+                                                                }
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+                                            <small class="text-muted d-block mt-2">Not: Hiç sayfa seçmezseniz tüm sayfalarda gösterilir.</small>
+                                        </div>
+
+                                        <div class="d-flex gap-2">
+                                            @if (editingGalleryIndex.HasValue)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-success" @onclick="SaveGalleryEdit">
+                                                    <i class="fa-solid fa-check me-1"></i>Güncelle
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelGalleryEdit">İptal</button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="btn btn-sm btn-success" @onclick="AddGalleryItem">
+                                                    <i class="fa-solid fa-plus me-1"></i>Ekle
+                                                </button>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <!-- Toplu Yükleme -->
+                                    <div class="mb-3">
+                                        <label class="small fw-bold text-muted">Toplu Yükleme (Birden Fazla Dosya Seçin)</label>
+                                        <div class="input-group input-group-sm">
+                                            <InputFile OnChange="@(e => UploadFiles(e, "gallery"))" multiple class="form-control" id="galleryBulkInput" />
+                                            <label class="input-group-text bg-success text-white" for="galleryBulkInput">
+                                                <i class="fa-solid fa-cloud-arrow-up me-2"></i>Toplu Yükle
+                                            </label>
+                                        </div>
+                                        <small class="text-muted">Not: Toplu yüklenen öğeler varsayılan ayarlarla eklenir, sonra düzenleyebilirsiniz.</small>
+                                    </div>
+
+                                    <!-- Galeri Listesi -->
+                                    <div class="row g-3">
+                                        @for (int i = 0; i < pageData.GalleryItems.Count; i++)
+                                        {
+                                            var index = i;
+                                            var item = pageData.GalleryItems[index];
+                                            <div class="col-6 col-md-4 col-lg-3">
+                                                <div class="card h-100 border-0 shadow-sm @(editingGalleryIndex == index ? "border border-2 border-warning" : "")">
+                                                    <div class="position-relative">
+                                                        @if (IsVideo(item.ImageUrl))
+                                                        {
+                                                            <video src="@item.ImageUrl" class="card-img-top" style="height: 120px; object-fit: cover;"></video>
+                                                        }
+                                                        else
+                                                        {
+                                                            <img src="@item.ImageUrl" class="card-img-top" style="height: 120px; object-fit: cover;" />
+                                                        }
+                                                        <div class="position-absolute top-0 end-0 m-1 d-flex gap-1">
+                                                            <button type="button" class="btn btn-primary btn-sm" @onclick="() => EditGalleryItem(index)" title="Düzenle">
+                                                                <i class="fa-solid fa-pen"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-danger btn-sm" @onclick="() => pageData.GalleryItems.RemoveAt(index)" title="Sil">
+                                                                <i class="fa-solid fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="card-body p-2 bg-white">
+                                                        <p class="card-text small fw-bold mb-0 text-truncate" title="@item.Title">
+                                                            @(string.IsNullOrEmpty(item.Title) ? "(Başlıksız)" : item.Title)
+                                                        </p>
+                                                        <p class="card-text small text-muted mb-0 text-truncate" style="font-size:0.7rem;" title="@item.Description">
+                                                            @(string.IsNullOrEmpty(item.Description) ? "-" : item.Description)
+                                                        </p>
+                                                        @if (item.SelectedPages != null && item.SelectedPages.Any())
+                                                        {
+                                                            <small class="text-success" style="font-size:0.65rem;">📄 @item.SelectedPages.Count sayfa</small>
+                                                        }
+                                                        else
+                                                        {
+                                                            <small class="text-muted" style="font-size:0.65rem;">📄 Tüm sayfalar</small>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
                                         }
                                     </div>
                                 </div>
@@ -316,20 +507,35 @@
     private Page pageModel = new();
     private PageContentData pageData = new();
     private List<Page> parentPages = new();
+    private List<Page> allPages = new();
     private bool isLoading = true;
     private int menuSelection = 0;
+
+    // Yükleme durumu için değişkenler
+    private bool isUploading = false;
+    private string uploadStatus = "";
 
     private SliderItem tempSlider = new();
     private NewsItem tempNews = new();
     private AnnouncementItem tempAnnouncement = new();
+    private GalleryItem tempGallery = new();
+
+    private int? editingSliderIndex = null;
+    private int? editingNewsIndex = null;
+    private int? editingAnnouncementIndex = null;
+    private int? editingGalleryIndex = null;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             using var context = DbFactory.CreateDbContext();
-            parentPages = await context.Pages.IgnoreQueryFilters().AsNoTracking()
-                .Where(p => p.TenantId == SiteId && (p.ParentId == null || p.ParentId == 0) && p.Id != PageId).ToListAsync();
+
+            allPages = await context.Pages.IgnoreQueryFilters().AsNoTracking()
+                .Where(p => p.TenantId == SiteId)
+                .ToListAsync();
+
+            parentPages = allPages.Where(p => (p.ParentId == null || p.ParentId == 0) && p.Id != PageId).ToList();
 
             if (PageId != 0)
             {
@@ -338,10 +544,23 @@
                 {
                     pageModel = existingPage;
                     menuSelection = (pageModel.ParentId == null || pageModel.ParentId == 0) ? 0 : 1;
-                    if (!string.IsNullOrEmpty(pageModel.ContentJson))
+                    if (!string.IsNullOrWhiteSpace(pageModel.ContentJson))
                     {
-                        try { pageData = JsonSerializer.Deserialize<PageContentData>(pageModel.ContentJson) ?? new PageContentData(); }
-                        catch { pageData = new PageContentData(); }
+                        try
+                        {
+                            var jsonOptions = new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true,
+                                ReadCommentHandling = JsonCommentHandling.Skip,
+                                AllowTrailingCommas = true
+                            };
+                            pageData = JsonSerializer.Deserialize<PageContentData>(pageModel.ContentJson, jsonOptions) ?? new PageContentData();
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"JSON Hatası: {ex.Message}");
+                            pageData = new PageContentData();
+                        }
                     }
                 }
             }
@@ -356,35 +575,20 @@
         finally { isLoading = false; }
     }
 
-    // --- DÜZELTME: BAŞLIK YAZILDIKÇA LİNK ÜRETEN FONKSİYON ---
     private void OnTitleChanged(string value)
     {
         pageModel.Title = value;
-        // Eğer link kutusu boşsa veya otomatik üretilmişse güncelle
         pageModel.Slug = CreateSlug(value);
     }
 
     private string CreateSlug(string title)
     {
         if (string.IsNullOrEmpty(title)) return "";
-
         string slug = title.ToLowerInvariant();
-
-        // Türkçe karakterleri değiştir
-        slug = slug.Replace("ı", "i")
-                   .Replace("ğ", "g")
-                   .Replace("ü", "u")
-                   .Replace("ş", "s")
-                   .Replace("ö", "o")
-                   .Replace("ç", "c");
-
-        // Geçersiz karakterleri sil (Harf, sayı ve boşluk dışındakiler)
+        slug = slug.Replace("ı", "i").Replace("ğ", "g").Replace("ü", "u").Replace("ş", "s").Replace("ö", "o").Replace("ç", "c");
         slug = Regex.Replace(slug, @"[^a-z0-9\s-]", "");
-
-        // Boşlukları tire ile değiştir ve fazlalık tireleri temizle
         slug = Regex.Replace(slug, @"\s+", " ").Trim();
         slug = slug.Replace(" ", "-");
-
         return slug;
     }
 
@@ -396,7 +600,6 @@
             int? finalParentId = (menuSelection == 0 || pageModel.ParentId == 0) ? null : pageModel.ParentId;
             pageModel.ContentJson = JsonSerializer.Serialize(pageData);
 
-            // GÜVENLİK ÖNLEMİ: Eğer kullanıcı linki sildiyse, kaydederken tekrar oluştur.
             if (string.IsNullOrWhiteSpace(pageModel.Slug) && !string.IsNullOrWhiteSpace(pageModel.Title))
             {
                 pageModel.Slug = CreateSlug(pageModel.Title);
@@ -429,23 +632,314 @@
 
     private async Task UploadFiles(InputFileChangeEventArgs e, string type)
     {
-        var webRoot = WebEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-        var uploadPath = Path.Combine(webRoot, "uploads", type);
-        if (!Directory.Exists(uploadPath)) Directory.CreateDirectory(uploadPath);
-        foreach (var file in e.GetMultipleFiles(10))
+        // 1. Durumu güncelle ve UI'ı yenile (Kullanıcı "Yükleniyor" görsün)
+        isUploading = true;
+        uploadStatus = "Yükleniyor...";
+        await InvokeAsync(StateHasChanged);
+
+        // 2. KRİTİK NOKTA: Ana iş parçacığını serbest bırakmak için kısa bir gecikme.
+        // Bu, SignalR bağlantısının "kopmasını" (Rejoining/Disconnected) engeller.
+        await Task.Delay(1);
+
+        try
         {
-            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.Name)}";
-            using (var fs = new FileStream(Path.Combine(uploadPath, fileName), FileMode.Create)) { await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(fs); }
-            var fileUrl = $"/uploads/{type}/{fileName}";
-            if (type == "slider") tempSlider.ImageUrl = fileUrl; else if (type == "news") tempNews.ImageUrl = fileUrl;
+            var webRoot = WebEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var actualType = type == "gallery_single" ? "gallery" : type;
+            var uploadPath = Path.Combine(webRoot, "uploads", actualType);
+
+            if (!Directory.Exists(uploadPath))
+                Directory.CreateDirectory(uploadPath);
+
+            var maxFiles = (type == "gallery" || type == "gallery_single") ? 20 : 1;
+            long maxFileSize = 100 * 1024 * 1024; // 100 MB Limit
+
+            IReadOnlyList<IBrowserFile> files;
+            try
+            {
+                files = e.GetMultipleFiles(maxFiles);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Dosya seçimi hatası: {ex.Message}");
+                return;
+            }
+
+            foreach (var file in files)
+            {
+                // Dosya boyutu kontrolü
+                if (file.Size > maxFileSize)
+                {
+                    Console.WriteLine($"Dosya çok büyük: {file.Name} (Max 100MB)");
+                    continue;
+                }
+
+                var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.Name)}";
+                var filePath = Path.Combine(uploadPath, fileName);
+
+                try
+                {
+                    // Dosyayı Diske Yaz (RAM'i şişirmeyen yöntem)
+                    using (var stream = file.OpenReadStream(maxAllowedSize: maxFileSize))
+                    {
+                        using (var fs = new FileStream(filePath, FileMode.Create))
+                        {
+                            await stream.CopyToAsync(fs);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Dosya yazma hatası: {ex.Message}");
+                    continue;
+                }
+
+                var fileUrl = $"/uploads/{actualType}/{fileName}";
+
+                if (type == "slider") tempSlider.ImageUrl = fileUrl;
+                else if (type == "news") tempNews.ImageUrl = fileUrl;
+                else if (type == "announcements") tempAnnouncement.ImageUrl = fileUrl;
+                else if (type == "gallery_single") tempGallery.ImageUrl = fileUrl;
+                else if (type == "gallery") pageData.GalleryItems.Add(new GalleryItem { ImageUrl = fileUrl });
+
+                uploadStatus = "✔ Başarıyla yüklendi!";
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Upload hatası: {ex}");
+        }
+        finally
+        {
+            isUploading = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
-    private void AddSliderItem() { if (!string.IsNullOrEmpty(tempSlider.ImageUrl)) { pageData.Sliders.Add(new SliderItem { ImageUrl = tempSlider.ImageUrl, Title = tempSlider.Title, LinkUrl = tempSlider.LinkUrl }); tempSlider = new(); } }
-    private void AddNewsItem() { if (!string.IsNullOrEmpty(tempNews.Title)) { pageData.NewsItems.Add(new NewsItem { Title = tempNews.Title, Summary = tempNews.Summary, ImageUrl = tempNews.ImageUrl }); tempNews = new(); } }
+
+    // Slider işlemleri
+    private void AddSliderItem()
+    {
+        if (!string.IsNullOrEmpty(tempSlider.ImageUrl))
+        {
+            pageData.Sliders.Add(new SliderItem
+            {
+                ImageUrl = tempSlider.ImageUrl,
+                Title = tempSlider.Title,
+                LinkUrl = tempSlider.LinkUrl
+            });
+            tempSlider = new();
+        }
+    }
+
+    private void EditSliderItem(int index)
+    {
+        editingSliderIndex = index;
+        var item = pageData.Sliders[index];
+        tempSlider = new SliderItem
+        {
+            ImageUrl = item.ImageUrl,
+            Title = item.Title,
+            LinkUrl = item.LinkUrl
+        };
+    }
+
+    private void SaveSliderEdit()
+    {
+        if (editingSliderIndex.HasValue && editingSliderIndex.Value < pageData.Sliders.Count)
+        {
+            var item = pageData.Sliders[editingSliderIndex.Value];
+            if (!string.IsNullOrEmpty(tempSlider.ImageUrl)) item.ImageUrl = tempSlider.ImageUrl;
+            item.Title = tempSlider.Title;
+            item.LinkUrl = tempSlider.LinkUrl;
+            editingSliderIndex = null;
+            tempSlider = new();
+        }
+    }
+
+    private void CancelSliderEdit()
+    {
+        editingSliderIndex = null;
+        tempSlider = new();
+    }
+
+    // Haber işlemleri
+    private void AddNewsItem()
+    {
+        if (!string.IsNullOrEmpty(tempNews.Title))
+        {
+            pageData.NewsItems.Add(new NewsItem
+            {
+                Title = tempNews.Title,
+                Summary = tempNews.Summary,
+                ImageUrl = tempNews.ImageUrl,
+                LinkUrl = tempNews.LinkUrl,
+                Content = tempNews.Content
+            });
+            tempNews = new();
+        }
+    }
+
+    private void EditNewsItem(int index)
+    {
+        editingNewsIndex = index;
+        var item = pageData.NewsItems[index];
+        tempNews = new NewsItem
+        {
+            Title = item.Title,
+            Summary = item.Summary,
+            ImageUrl = item.ImageUrl,
+            LinkUrl = item.LinkUrl,
+            Content = item.Content
+        };
+    }
+
+    private void SaveNewsEdit()
+    {
+        if (editingNewsIndex.HasValue && editingNewsIndex.Value < pageData.NewsItems.Count)
+        {
+            var item = pageData.NewsItems[editingNewsIndex.Value];
+            item.Title = tempNews.Title;
+            item.Summary = tempNews.Summary;
+            if (!string.IsNullOrEmpty(tempNews.ImageUrl)) item.ImageUrl = tempNews.ImageUrl;
+            item.LinkUrl = tempNews.LinkUrl;
+            item.Content = tempNews.Content;
+            editingNewsIndex = null;
+            tempNews = new();
+        }
+    }
+
+    private void CancelNewsEdit()
+    {
+        editingNewsIndex = null;
+        tempNews = new();
+    }
+
+    // Duyuru işlemleri
+    private void AddAnnouncementItem()
+    {
+        if (!string.IsNullOrEmpty(tempAnnouncement.Title))
+        {
+            pageData.Announcements.Add(new AnnouncementItem
+            {
+                Title = tempAnnouncement.Title,
+                ImageUrl = tempAnnouncement.ImageUrl,
+                LinkUrl = tempAnnouncement.LinkUrl,
+                Content = tempAnnouncement.Content
+            });
+            tempAnnouncement = new();
+        }
+    }
+
+    private void EditAnnouncementItem(int index)
+    {
+        editingAnnouncementIndex = index;
+        var item = pageData.Announcements[index];
+        tempAnnouncement = new AnnouncementItem
+        {
+            Title = item.Title,
+            ImageUrl = item.ImageUrl,
+            LinkUrl = item.LinkUrl,
+            Content = item.Content
+        };
+    }
+
+    private void SaveAnnouncementEdit()
+    {
+        if (editingAnnouncementIndex.HasValue && editingAnnouncementIndex.Value < pageData.Announcements.Count)
+        {
+            var item = pageData.Announcements[editingAnnouncementIndex.Value];
+            item.Title = tempAnnouncement.Title;
+            if (!string.IsNullOrEmpty(tempAnnouncement.ImageUrl)) item.ImageUrl = tempAnnouncement.ImageUrl;
+            item.LinkUrl = tempAnnouncement.LinkUrl;
+            item.Content = tempAnnouncement.Content;
+            editingAnnouncementIndex = null;
+            tempAnnouncement = new();
+        }
+    }
+
+    private void CancelAnnouncementEdit()
+    {
+        editingAnnouncementIndex = null;
+        tempAnnouncement = new();
+    }
+
+    // Galeri işlemleri
+    private void AddGalleryItem()
+    {
+        if (!string.IsNullOrEmpty(tempGallery.ImageUrl))
+        {
+            pageData.GalleryItems.Add(new GalleryItem
+            {
+                ImageUrl = tempGallery.ImageUrl,
+                Title = tempGallery.Title,
+                Description = tempGallery.Description,
+                SelectedPages = tempGallery.SelectedPages?.ToList() ?? new List<string>()
+            });
+            tempGallery = new();
+        }
+    }
+
+    private void EditGalleryItem(int index)
+    {
+        editingGalleryIndex = index;
+        var item = pageData.GalleryItems[index];
+        tempGallery = new GalleryItem
+        {
+            ImageUrl = item.ImageUrl,
+            Title = item.Title,
+            Description = item.Description,
+            SelectedPages = item.SelectedPages?.ToList() ?? new List<string>()
+        };
+    }
+
+    private void SaveGalleryEdit()
+    {
+        if (editingGalleryIndex.HasValue && editingGalleryIndex.Value < pageData.GalleryItems.Count)
+        {
+            var item = pageData.GalleryItems[editingGalleryIndex.Value];
+            if (!string.IsNullOrEmpty(tempGallery.ImageUrl)) item.ImageUrl = tempGallery.ImageUrl;
+            item.Title = tempGallery.Title;
+            item.Description = tempGallery.Description;
+            item.SelectedPages = tempGallery.SelectedPages?.ToList() ?? new List<string>();
+            editingGalleryIndex = null;
+            tempGallery = new();
+        }
+    }
+
+    private void CancelGalleryEdit()
+    {
+        editingGalleryIndex = null;
+        tempGallery = new();
+    }
+
+    private void ToggleGalleryPage(string pageSlug, bool isChecked)
+    {
+        tempGallery.SelectedPages ??= new List<string>();
+        if (isChecked && !tempGallery.SelectedPages.Contains(pageSlug))
+            tempGallery.SelectedPages.Add(pageSlug);
+        else if (!isChecked && tempGallery.SelectedPages.Contains(pageSlug))
+            tempGallery.SelectedPages.Remove(pageSlug);
+    }
+
+    private bool IsVideo(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return false;
+        var ext = Path.GetExtension(url).ToLower();
+        return ext == ".mp4" || ext == ".webm" || ext == ".ogg" || ext == ".mov";
+    }
+
     private void ClearNavigations(Page p) { try { var t = p.GetType().GetProperty("Tenant"); if (t != null) t.SetValue(p, null); var pp = p.GetType().GetProperty("ParentPage"); if (pp != null) pp.SetValue(p, null); } catch { } }
     private void GoBack() => NavManager.NavigateTo($"/pages?openSiteId={SiteId}");
 
-    // --- MODELLER ---
+    private void OpenPreview()
+    {
+        if (!string.IsNullOrEmpty(pageModel.Slug))
+        {
+            var url = $"https://sinavkurs.localhost:7156/view/{pageModel.Slug}";
+            NavManager.NavigateTo(url, forceLoad: true);
+        }
+    }
+
     public class PageContentData
     {
         public string PageType { get; set; } = "Standard";
@@ -456,7 +950,7 @@
         public bool HasAnnouncements { get; set; }
         public List<AnnouncementItem> Announcements { get; set; } = new();
         public bool HasGallery { get; set; }
-        public List<string> GalleryImages { get; set; } = new();
+        public List<GalleryItem> GalleryItems { get; set; } = new();
         public string HtmlContent { get; set; } = "";
         public ContactInfo Contact { get; set; } = new();
     }
@@ -480,7 +974,36 @@
         public string Facebook { get; set; }
         public string Twitter { get; set; }
     }
-    public class SliderItem { public string ImageUrl { get; set; } public string Title { get; set; } public string LinkUrl { get; set; } }
-    public class NewsItem { public string Title { get; set; } public string Summary { get; set; } public string ImageUrl { get; set; } }
-    public class AnnouncementItem { public string Title { get; set; } public string ImageUrl { get; set; } }
+
+    public class SliderItem
+    {
+        public string ImageUrl { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string LinkUrl { get; set; }
+    }
+
+    public class NewsItem
+    {
+        public string Title { get; set; }
+        public string Summary { get; set; }
+        public string ImageUrl { get; set; }
+        public string LinkUrl { get; set; }
+        public string Content { get; set; }
+    }
+
+    public class AnnouncementItem
+    {
+        public string Title { get; set; }
+        public string ImageUrl { get; set; }
+        public string LinkUrl { get; set; }
+        public string Content { get; set; }
+    }
+
+    public class GalleryItem
+    {
+        public string ImageUrl { get; set; }
+        public string Title { get; set; }
+        public string Description { get; set; }
+        public List<string> SelectedPages { get; set; } = new();
+    }
 }

@@ -2,16 +2,16 @@
 @using CoreBuilder.Data
 @using CoreBuilder.Entities
 @using System.Text.Json
+@using System.IO
 @inject NavigationManager NavManager
 @inject ApplicationDbContext DbContext
 
-@* DİKKAT: @page YOK! BU SAYFAYI ARTIK ROUTES.RAZOR ÇAĞIRACAK *@
+@* DİKKAT: @page YOK! BU SAYFAYI ROUTES.RAZOR ÇAĞIRACAK *@
 
-<PageTitle>@(pageData?.Title ?? "Sayfa Bulunamadı")</PageTitle>
+<PageTitle>@(pageData?.Title ?? "Sayfa")</PageTitle>
 
 @if (isSystemFile)
 {
-    @* CSS, JS veya Admin dosyası ise 404 ver (Temayı bozma) *@
     <div class="text-center mt-5 p-5">
         <h1 class="display-1 text-muted">404</h1>
         <p>Kaynak bulunamadı.</p>
@@ -19,14 +19,12 @@
 }
 else if (isLoading)
 {
-    <div class="d-flex justify-content-center align-items-center vh-100">
+    <div class="d-flex justify-content-center align-items-center" style="min-height:300px;">
         <div class="spinner-border text-primary"></div>
     </div>
 }
 else if (pageData != null)
 {
-    @* --- İÇERİK VARSA GÖSTER --- *@
-
     // 1. SLIDER
     if (pageData.HasSlider && pageData.Sliders != null && pageData.Sliders.Any())
     {
@@ -34,11 +32,21 @@ else if (pageData != null)
             <div class="carousel-inner">
                 @for (int i = 0; i < pageData.Sliders.Count; i++)
                 {
+                    var slider = pageData.Sliders[i];
                     <div class="carousel-item @(i == 0 ? "active" : "")">
-                        <img src="@pageData.Sliders[i].ImageUrl" class="d-block w-100" style="height: 400px; object-fit: cover;">
-                        @if (!string.IsNullOrEmpty(pageData.Sliders[i].Title))
+                        @if (IsVideo(slider.ImageUrl))
                         {
-                            <div class="carousel-caption d-none d-md-block"><h5>@pageData.Sliders[i].Title</h5></div>
+                            <video src="@slider.ImageUrl" class="d-block w-100" style="height: 400px; object-fit: cover;" autoplay muted loop playsinline></video>
+                        }
+                        else
+                        {
+                            <img src="@slider.ImageUrl" class="d-block w-100" style="height: 400px; object-fit: cover;">
+                        }
+                        @if (!string.IsNullOrEmpty(slider.Title))
+                        {
+                            <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded p-2">
+                                <h5 class="mb-0">@slider.Title</h5>
+                            </div>
                         }
                     </div>
                 }
@@ -48,26 +56,148 @@ else if (pageData != null)
         </div>
     }
 
-    // 2. İLETİŞİM VEYA HTML
+    // 2. DUYURULAR
+    if (pageData.HasAnnouncements && pageData.Announcements != null && pageData.Announcements.Any())
+    {
+        <div class="container py-4">
+            <h4 class="border-bottom pb-2 mb-4"><i class="fa-solid fa-bullhorn text-warning me-2"></i>Duyurular</h4>
+            <div class="row">
+                @foreach (var ann in pageData.Announcements)
+                {
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card h-100 shadow-sm border-0 border-start border-4 border-warning">
+                            @if (!string.IsNullOrEmpty(ann.ImageUrl))
+                            {
+                                @if (IsVideo(ann.ImageUrl))
+                                {
+                                    <video src="@ann.ImageUrl" class="card-img-top" style="height: 150px; object-fit: cover;" controls></video>
+                                }
+                                else
+                                {
+                                    <img src="@ann.ImageUrl" class="card-img-top" style="height: 150px; object-fit: cover;">
+                                }
+                            }
+                            <div class="card-body">
+                                <h6 class="card-title fw-bold">@ann.Title</h6>
+                                <p class="card-text small text-muted">@ann.Content</p>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    // 3. HABERLER
+    if (pageData.HasNews && pageData.NewsItems != null && pageData.NewsItems.Any())
+    {
+        <div class="container py-4">
+            <h4 class="border-bottom pb-2 mb-4"><i class="fa-solid fa-newspaper text-info me-2"></i>Haberler</h4>
+            <div class="row">
+                @foreach (var news in pageData.NewsItems)
+                {
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100 shadow-sm border-0">
+                            <div class="row g-0">
+                                @if (!string.IsNullOrEmpty(news.ImageUrl))
+                                {
+                                    <div class="col-4">
+                                        @if (IsVideo(news.ImageUrl))
+                                        {
+                                            <video src="@news.ImageUrl" class="img-fluid rounded-start h-100" style="object-fit: cover;" controls></video>
+                                        }
+                                        else
+                                        {
+                                            <img src="@news.ImageUrl" class="img-fluid rounded-start h-100" style="object-fit: cover;">
+                                        }
+                                    </div>
+                                }
+                                <div class="@(string.IsNullOrEmpty(news.ImageUrl) ? "col-12" : "col-8")">
+                                    <div class="card-body">
+                                        <h6 class="card-title fw-bold">@news.Title</h6>
+                                        <p class="card-text small text-muted">@news.Summary</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    // 4. GALERİ
+    if (pageData.HasGallery && pageData.GalleryItems != null && pageData.GalleryItems.Any())
+    {
+        <div class="container py-4">
+            <h4 class="border-bottom pb-2 mb-4"><i class="fa-solid fa-images text-success me-2"></i>Galeri</h4>
+            <div class="row">
+                @foreach (var item in pageData.GalleryItems)
+                {
+                    <div class="col-6 col-md-4 col-lg-3 mb-4">
+                        <div class="card h-100 shadow-sm border-0">
+                            @if (IsVideo(item.ImageUrl))
+                            {
+                                <video src="@item.ImageUrl" class="card-img-top" style="height: 150px; object-fit: cover;" controls></video>
+                            }
+                            else
+                            {
+                                <img src="@item.ImageUrl" class="card-img-top" style="height: 150px; object-fit: cover;">
+                            }
+                            @if (!string.IsNullOrEmpty(item.Title))
+                            {
+                                <div class="card-body p-2">
+                                    <p class="card-text small fw-bold mb-0">@item.Title</p>
+                                    <p class="card-text small text-muted mb-0">@item.Description</p>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    // 5. İLETİŞİM SAYFASI
     if (pageData.PageType == "Contact")
     {
         <div class="container py-5">
             <div class="row">
                 <div class="col-lg-6 mb-4">
-                    <h2 class="fw-bold mb-4">İletişim Bilgileri</h2>
-                    @if (!string.IsNullOrEmpty(pageData.Contact.AddressText))
+                    <h4 class="fw-bold mb-4"><i class="fa-solid fa-address-card text-primary me-2"></i>İletişim Bilgileri</h4>
+                    @if (!string.IsNullOrEmpty(pageData.Contact?.AddressText))
                     {
-                        <div class="d-flex mb-3"><i class="bi bi-geo-alt-fill text-primary fs-4 me-3"></i><div><h6 class="fw-bold mb-0">Adres</h6><p class="text-muted mb-0">@pageData.Contact.AddressText @pageData.Contact.District / @pageData.Contact.City</p></div></div>
+                        <div class="d-flex mb-3">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width:45px;height:45px;"><i class="fa-solid fa-location-dot"></i></div>
+                            <div><h6 class="fw-bold mb-1">Adres</h6><p class="text-muted mb-0">@pageData.Contact.AddressText, @pageData.Contact.District / @pageData.Contact.City</p></div>
+                        </div>
                     }
-                    @if (!string.IsNullOrEmpty(pageData.Contact.Phone1))
+                    @if (!string.IsNullOrEmpty(pageData.Contact?.Phone1))
                     {
-                        <div class="d-flex mb-3"><i class="bi bi-telephone-fill text-primary fs-4 me-3"></i><div><h6 class="fw-bold mb-0">Telefon</h6><a href="tel:@pageData.Contact.Phone1" class="text-decoration-none text-dark">@pageData.Contact.Phone1</a></div></div>
+                        <div class="d-flex mb-3">
+                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width:45px;height:45px;"><i class="fa-solid fa-phone"></i></div>
+                            <div><h6 class="fw-bold mb-1">@(pageData.Contact.PhoneLabel1 ?? "Telefon")</h6><a href="tel:@pageData.Contact.Phone1" class="text-decoration-none">@pageData.Contact.Phone1</a></div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(pageData.Contact?.Email1))
+                    {
+                        <div class="d-flex mb-3">
+                            <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width:45px;height:45px;"><i class="fa-solid fa-envelope"></i></div>
+                            <div><h6 class="fw-bold mb-1">E-Posta</h6><a href="mailto:@pageData.Contact.Email1" class="text-decoration-none">@pageData.Contact.Email1</a></div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(pageData.Contact?.WorkingDays))
+                    {
+                        <div class="d-flex mb-3">
+                            <div class="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center me-3" style="width:45px;height:45px;"><i class="fa-solid fa-clock"></i></div>
+                            <div><h6 class="fw-bold mb-1">Çalışma Saatleri</h6><p class="text-muted mb-0">@pageData.Contact.WorkingDays: @pageData.Contact.WorkingHours</p></div>
+                        </div>
                     }
                 </div>
                 <div class="col-lg-6">
-                    @if (!string.IsNullOrEmpty(pageData.Contact.MapEmbedCode))
+                    @if (!string.IsNullOrEmpty(pageData.Contact?.MapEmbedCode))
                     {
-                        <div class="ratio ratio-16x9 rounded shadow-sm overflow-hidden">@((MarkupString)pageData.Contact.MapEmbedCode)</div>
+                        <div class="ratio ratio-16x9 rounded shadow overflow-hidden">@((MarkupString)pageData.Contact.MapEmbedCode)</div>
                     }
                 </div>
             </div>
@@ -75,18 +205,20 @@ else if (pageData != null)
     }
     else
     {
-        <div class="container site-content py-4">@((MarkupString)(pageData.HtmlContent ?? ""))</div>
+        // 6. HTML İÇERİK
+        @if (!string.IsNullOrEmpty(pageData.HtmlContent))
+        {
+            <div class="container site-content py-4">@((MarkupString)pageData.HtmlContent)</div>
+        }
     }
 }
 else
 {
-    @* --- VERİTABANINDA YOKSA --- *@
     <div class="container mt-5 text-center">
-        <div class="alert alert-light py-5">
-            <h1 class="display-1 fw-bold text-muted">404</h1>
+        <div class="alert alert-danger py-5">
             <h3>Sayfa Bulunamadı</h3>
-            <p>Aradığınız sayfa sistemde kayıtlı değil.</p>
-            <a href="/" class="btn btn-primary mt-3">Anasayfaya Dön</a>
+            <p>Aradığınız sayfa bulunamadı.</p>
+            <a href="/" class="btn btn-primary mt-3">Ana Sayfaya Dön</a>
         </div>
     </div>
 }
@@ -98,13 +230,31 @@ else
     private bool isLoading = true;
     private bool isSystemFile = false;
 
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPageData();
+    }
+
     protected override async Task OnParametersSetAsync()
     {
-        var uri = new Uri(NavManager.Uri);
-        string path = uri.AbsolutePath; // Örn: /deneme
+        await LoadPageData();
+    }
 
-        // 1. KORUMA: Dosya uzantısı varsa veya Admin paneli ise çalışma
-        if (path.Contains(".") || path.StartsWith("/admin") || path.StartsWith("/_blazor") || !uri.Host.Contains("sinavkurs"))
+    // Video dosyası mı kontrol et
+    private bool IsVideo(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return false;
+        var ext = Path.GetExtension(url).ToLower();
+        return ext == ".mp4" || ext == ".webm" || ext == ".ogg" || ext == ".mov" || ext == ".avi" || ext == ".mkv";
+    }
+
+    private async Task LoadPageData()
+    {
+        var uri = new Uri(NavManager.Uri);
+        string path = uri.AbsolutePath.Trim('/');
+
+        // Admin paneli veya sistem dosyası ise çalışma
+        if (string.IsNullOrEmpty(path) || path.Contains(".") || path.StartsWith("_") || !uri.Host.Contains("sinavkurs"))
         {
             isSystemFile = true;
             isLoading = false;
@@ -114,10 +264,8 @@ else
         isLoading = true;
         pageData = null;
 
-        // Tenant (Site) bilgisi MainLayout'tan gelmeli
         if (currentTenant == null)
         {
-            // Gelmediyse acil durum: kendimiz bulalım
             try { currentTenant = await DbContext.Tenants.FirstOrDefaultAsync(t => t.Domain == uri.Host); } catch { }
         }
 
@@ -125,15 +273,10 @@ else
         {
             try
             {
-                // URL'deki / işaretini temizle veya olduğu gibi kullan
-                string slugWithSlash = path.StartsWith("/") ? path : "/" + path;
-                string slugWithoutSlash = path.Trim('/');
-
-                // Veritabanında ara (/deneme veya deneme)
                 var currentPage = await DbContext.Pages
                     .IgnoreQueryFilters()
-                    .Where(p => p.TenantId == currentTenant.Id)
-                    .Where(p => p.Slug == slugWithSlash || p.Slug == slugWithoutSlash)
+                    .Where(p => p.TenantId == currentTenant.Id && p.IsPublished)
+                    .Where(p => p.Slug == path || p.Slug == "/" + path)
                     .FirstOrDefaultAsync();
 
                 if (currentPage != null && !string.IsNullOrEmpty(currentPage.ContentJson))
@@ -143,7 +286,7 @@ else
                     if (pageData != null) pageData.Title = currentPage.Title;
                 }
             }
-            catch (Exception ex) { Console.WriteLine("Hata: " + ex.Message); }
+            catch (Exception ex) { Console.WriteLine("DynamicPage Hata: " + ex.Message); }
         }
 
         isLoading = false;
@@ -155,18 +298,34 @@ else
         public string PageType { get; set; } = "Standard";
         public bool HasSlider { get; set; }
         public List<SliderDto> Sliders { get; set; } = new();
+        public bool HasNews { get; set; }
+        public List<NewsDto> NewsItems { get; set; } = new();
+        public bool HasAnnouncements { get; set; }
+        public List<AnnouncementDto> Announcements { get; set; } = new();
+        public bool HasGallery { get; set; }
+        public List<GalleryDto> GalleryItems { get; set; } = new();
         public string HtmlContent { get; set; } = "";
         public ContactInfo Contact { get; set; } = new();
     }
+
     public class ContactInfo
     {
-        public string PhoneLabel1 { get; set; }
-        public string Phone1 { get; set; }
-        public string AddressText { get; set; }
-        public string City { get; set; }
-        public string District { get; set; }
-        public string Email1 { get; set; }
-        public string MapEmbedCode { get; set; }
+        public string PhoneLabel1 { get; set; } = "";
+        public string Phone1 { get; set; } = "";
+        public string PhoneLabel2 { get; set; } = "";
+        public string Phone2 { get; set; } = "";
+        public string Email1 { get; set; } = "";
+        public string Email2 { get; set; } = "";
+        public string AddressText { get; set; } = "";
+        public string City { get; set; } = "";
+        public string District { get; set; } = "";
+        public string MapEmbedCode { get; set; } = "";
+        public string WorkingDays { get; set; } = "";
+        public string WorkingHours { get; set; } = "";
     }
-    public class SliderDto { public string ImageUrl { get; set; } public string Title { get; set; } }
+
+    public class SliderDto { public string ImageUrl { get; set; } = ""; public string Title { get; set; } = ""; }
+    public class NewsDto { public string Title { get; set; } = ""; public string Summary { get; set; } = ""; public string ImageUrl { get; set; } = ""; }
+    public class AnnouncementDto { public string Title { get; set; } = ""; public string ImageUrl { get; set; } = ""; public string Content { get; set; } = ""; }
+    public class GalleryDto { public string ImageUrl { get; set; } = ""; public string Title { get; set; } = ""; public string Description { get; set; } = ""; }
 }

@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace CoreBuilder.Entities
+﻿namespace CoreBuilder.Entities
 {
     public class ThemeSettings : BaseEntity
     {

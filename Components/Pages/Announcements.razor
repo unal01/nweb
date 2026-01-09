@@ -1,0 +1,784 @@
+@page "/announcements"
+@using CoreBuilder.Entities
+@using CoreBuilder.Data
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Hosting
+@using System.IO
+@using System.Text.Json
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject NavigationManager NavManager
+@inject IWebHostEnvironment WebEnvironment
+@rendermode InteractiveServer
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-0">
+                <i class="fa-solid fa-bullhorn text-warning me-2"></i>Duyuru & Haber Yönetimi
+            </h3>
+            <span class="text-muted small">Tüm duyuru ve haberleri merkezi olarak yönetin</span>
+        </div>
+    </div>
+
+    <!-- Site Seçimi -->
+    <div class="card shadow-sm mb-4 border-warning border-top border-3">
+        <div class="card-body bg-light">
+            <label class="form-label fw-bold text-warning mb-2">
+                <i class="fa-solid fa-filter me-1"></i> Site Seçin:
+            </label>
+            @if (tenants == null)
+            {
+                <div class="spinner-border spinner-border-sm text-warning" role="status"></div>
+            }
+            else
+            {
+                <select class="form-select form-select-lg shadow-sm" @bind="selectedTenantId" @bind:after="OnTenantChanged">
+                    <option value="0">-- Lütfen Bir Site Seçiniz --</option>
+                    @foreach (var t in tenants)
+                    {
+                        <option value="@t.Id">@t.SiteName (@t.Domain)</option>
+                    }
+                </select>
+            }
+        </div>
+    </div>
+
+    @if (selectedTenantId > 0)
+    {
+        <!-- Tabs -->
+        <ul class="nav nav-tabs mb-4" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link @(activeTab == "announcements" ? "active" : "")" @onclick='() => activeTab = "announcements"'>
+                    <i class="fa-solid fa-bullhorn text-warning me-2"></i>Duyurular
+                    <span class="badge bg-warning text-dark ms-2">@siteData.Announcements.Count</span>
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(activeTab == "news" ? "active" : "")" @onclick='() => activeTab = "news"'>
+                    <i class="fa-solid fa-newspaper text-info me-2"></i>Haberler
+                    <span class="badge bg-info ms-2">@siteData.NewsItems.Count</span>
+                </button>
+            </li>
+        </ul>
+
+        <!-- Duyurular Tab -->
+        @if (activeTab == "announcements")
+        {
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-warning bg-opacity-10 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-warning fw-bold"><i class="fa-solid fa-bullhorn me-2"></i>Duyurular</h5>
+                    <button class="btn btn-warning" @onclick="() => showAnnouncementForm = !showAnnouncementForm">
+                        <i class="fa-solid @(showAnnouncementForm ? "fa-minus" : "fa-plus") me-2"></i>
+                        @(showAnnouncementForm ? "Formu Kapat" : "Yeni Duyuru Ekle")
+                    </button>
+                </div>
+
+                @if (showAnnouncementForm)
+                {
+                    <div class="card-body border-bottom bg-light">
+                        <h6 class="fw-bold text-muted mb-3">
+                            <i class="fa-solid @(editingAnnouncementIndex.HasValue ? "fa-pen" : "fa-plus-circle") me-2"></i>
+                            @(editingAnnouncementIndex.HasValue ? "Duyuru Düzenle" : "Yeni Duyuru Ekle")
+                        </h6>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Baþlýk <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" @bind="tempAnnouncement.Title" placeholder="Duyuru Baþlýðý" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Görsel</label>
+                                <InputFile OnChange="@(e => UploadFile(e, "announcement"))" class="form-control" />
+                                @if (!string.IsNullOrEmpty(tempAnnouncement.ImageUrl))
+                                {
+                                    <div class="mt-2">
+                                        <img src="@tempAnnouncement.ImageUrl" style="height:60px; object-fit:cover;" class="rounded" />
+                                    </div>
+                                }
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold small">Ýçerik</label>
+                                <textarea class="form-control" rows="4" @bind="tempAnnouncement.Content" placeholder="Duyuru içeriði..."></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Link (Opsiyonel)</label>
+                                <input type="text" class="form-control" @bind="tempAnnouncement.LinkUrl" placeholder="https://..." />
+                            </div>
+                        </div>
+
+                        <!-- Sayfa Seçimi -->
+                        <div class="mt-4 p-3 bg-white border rounded">
+                            <label class="form-label fw-bold text-primary mb-3">
+                                <i class="fa-solid fa-file-lines me-2"></i>Hangi Sayfalarda Gösterilsin?
+                            </label>
+                            <div class="row g-2">
+                                @foreach (var pg in sitePages)
+                                {
+                                    var pageSlug = pg.Slug;
+                                    var pageId = pg.Id;
+                                    <div class="col-md-4 col-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   id="@($"ann_pg_{pageId}")"
+                                                   checked="@(tempAnnouncement.SelectedPages?.Contains(pageSlug) ?? false)"
+                                                   @onchange="@(e => ToggleAnnouncementPage(pageSlug, (bool)e.Value))" />
+                                            <label class="form-check-label" for="@($"ann_pg_{pageId}")">
+                                                @pg.Title
+                                                @if (pg.Slug == "duyurular" || pg.Title.ToLower().Contains("duyuru"))
+                                                {
+                                                    <span class="badge bg-warning text-dark ms-1">Ana</span>
+                                                }
+                                            </label>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="mt-3 d-flex gap-2">
+                            @if (editingAnnouncementIndex.HasValue)
+                            {
+                                <button class="btn btn-success" @onclick="SaveAnnouncementEdit">
+                                    <i class="fa-solid fa-check me-2"></i>Güncelle
+                                </button>
+                                <button class="btn btn-secondary" @onclick="CancelAnnouncementEdit">Ýptal</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-warning" @onclick="AddAnnouncement">
+                                    <i class="fa-solid fa-plus me-2"></i>Duyuru Ekle
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <div class="card-body p-0">
+                    @if (siteData.Announcements.Count == 0)
+                    {
+                        <div class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-bullhorn fa-3x mb-3 opacity-25"></i>
+                            <p>Henüz duyuru eklenmemiþ.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0 align-middle">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th style="width:80px;">Görsel</th>
+                                        <th>Baþlýk</th>
+                                        <th>Yayýn Sayfalarý</th>
+                                        <th style="width:120px;" class="text-end">Ýþlemler</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (int i = 0; i < siteData.Announcements.Count; i++)
+                                    {
+                                        var index = i;
+                                        var ann = siteData.Announcements[i];
+                                        <tr class="@(editingAnnouncementIndex == index ? "table-warning" : "")">
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(ann.ImageUrl))
+                                                {
+                                                    <img src="@ann.ImageUrl" style="width:60px; height:45px; object-fit:cover;" class="rounded" />
+                                                }
+                                                else
+                                                {
+                                                    <div class="bg-light rounded d-flex align-items-center justify-content-center" style="width:60px; height:45px;">
+                                                        <i class="fa-solid fa-image text-muted"></i>
+                                                    </div>
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="fw-bold">@ann.Title</div>
+                                                <small class="text-muted">@(ann.Content?.Length > 50 ? ann.Content.Substring(0, 50) + "..." : ann.Content)</small>
+                                            </td>
+                                            <td>
+                                                @if (ann.SelectedPages != null && ann.SelectedPages.Any())
+                                                {
+                                                    @foreach (var slug in ann.SelectedPages.Take(3))
+                                                    {
+                                                        <span class="badge bg-warning text-dark me-1">@slug</span>
+                                                    }
+                                                    @if (ann.SelectedPages.Count > 3)
+                                                    {
+                                                        <span class="badge bg-secondary">+@(ann.SelectedPages.Count - 3)</span>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted small">Sayfa seçilmedi</span>
+                                                }
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditAnnouncement(index)" title="Düzenle">
+                                                    <i class="fa-solid fa-pen"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAnnouncement(index)" title="Sil">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Haberler Tab -->
+        @if (activeTab == "news")
+        {
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-info fw-bold"><i class="fa-solid fa-newspaper me-2"></i>Haberler</h5>
+                    <button class="btn btn-info text-white" @onclick="() => showNewsForm = !showNewsForm">
+                        <i class="fa-solid @(showNewsForm ? "fa-minus" : "fa-plus") me-2"></i>
+                        @(showNewsForm ? "Formu Kapat" : "Yeni Haber Ekle")
+                    </button>
+                </div>
+
+                @if (showNewsForm)
+                {
+                    <div class="card-body border-bottom bg-light">
+                        <h6 class="fw-bold text-muted mb-3">
+                            <i class="fa-solid @(editingNewsIndex.HasValue ? "fa-pen" : "fa-plus-circle") me-2"></i>
+                            @(editingNewsIndex.HasValue ? "Haber Düzenle" : "Yeni Haber Ekle")
+                        </h6>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Baþlýk <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" @bind="tempNews.Title" placeholder="Haber Baþlýðý" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Görsel</label>
+                                <InputFile OnChange="@(e => UploadFile(e, "news"))" class="form-control" />
+                                @if (!string.IsNullOrEmpty(tempNews.ImageUrl))
+                                {
+                                    <div class="mt-2">
+                                        <img src="@tempNews.ImageUrl" style="height:60px; object-fit:cover;" class="rounded" />
+                                    </div>
+                                }
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold small">Özet</label>
+                                <input type="text" class="form-control" @bind="tempNews.Summary" placeholder="Kýsa özet..." />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold small">Ýçerik</label>
+                                <textarea class="form-control" rows="4" @bind="tempNews.Content" placeholder="Haber içeriði..."></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Link (Opsiyonel)</label>
+                                <input type="text" class="form-control" @bind="tempNews.LinkUrl" placeholder="https://..." />
+                            </div>
+                        </div>
+
+                        <!-- Sayfa Seçimi -->
+                        <div class="mt-4 p-3 bg-white border rounded">
+                            <label class="form-label fw-bold text-primary mb-3">
+                                <i class="fa-solid fa-file-lines me-2"></i>Hangi Sayfalarda Gösterilsin?
+                            </label>
+                            <div class="row g-2">
+                                @foreach (var pg in sitePages)
+                                {
+                                    var pageSlug = pg.Slug;
+                                    var pageId = pg.Id;
+                                    <div class="col-md-4 col-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   id="@($"news_pg_{pageId}")"
+                                                   checked="@(tempNews.SelectedPages?.Contains(pageSlug) ?? false)"
+                                                   @onchange="@(e => ToggleNewsPage(pageSlug, (bool)e.Value))" />
+                                            <label class="form-check-label" for="@($"news_pg_{pageId}")">
+                                                @pg.Title
+                                                @if (pg.Slug == "haberler" || pg.Title.ToLower().Contains("haber"))
+                                                {
+                                                    <span class="badge bg-info ms-1">Ana</span>
+                                                }
+                                            </label>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="mt-3 d-flex gap-2">
+                            @if (editingNewsIndex.HasValue)
+                            {
+                                <button class="btn btn-success" @onclick="SaveNewsEdit">
+                                    <i class="fa-solid fa-check me-2"></i>Güncelle
+                                </button>
+                                <button class="btn btn-secondary" @onclick="CancelNewsEdit">Ýptal</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-info text-white" @onclick="AddNews">
+                                    <i class="fa-solid fa-plus me-2"></i>Haber Ekle
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <div class="card-body p-0">
+                    @if (siteData.NewsItems.Count == 0)
+                    {
+                        <div class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-newspaper fa-3x mb-3 opacity-25"></i>
+                            <p>Henüz haber eklenmemiþ.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0 align-middle">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th style="width:80px;">Görsel</th>
+                                        <th>Baþlýk</th>
+                                        <th>Yayýn Sayfalarý</th>
+                                        <th style="width:120px;" class="text-end">Ýþlemler</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (int i = 0; i < siteData.NewsItems.Count; i++)
+                                    {
+                                        var index = i;
+                                        var news = siteData.NewsItems[i];
+                                        <tr class="@(editingNewsIndex == index ? "table-info" : "")">
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(news.ImageUrl))
+                                                {
+                                                    <img src="@news.ImageUrl" style="width:60px; height:45px; object-fit:cover;" class="rounded" />
+                                                }
+                                                else
+                                                {
+                                                    <div class="bg-light rounded d-flex align-items-center justify-content-center" style="width:60px; height:45px;">
+                                                        <i class="fa-solid fa-image text-muted"></i>
+                                                    </div>
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="fw-bold">@news.Title</div>
+                                                <small class="text-muted">@news.Summary</small>
+                                            </td>
+                                            <td>
+                                                @if (news.SelectedPages != null && news.SelectedPages.Any())
+                                                {
+                                                    @foreach (var slug in news.SelectedPages.Take(3))
+                                                    {
+                                                        <span class="badge bg-info me-1">@slug</span>
+                                                    }
+                                                    @if (news.SelectedPages.Count > 3)
+                                                    {
+                                                        <span class="badge bg-secondary">+@(news.SelectedPages.Count - 3)</span>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted small">Sayfa seçilmedi</span>
+                                                }
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditNews(index)" title="Düzenle">
+                                                    <i class="fa-solid fa-pen"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteNews(index)" title="Sil">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Kaydet Butonu -->
+        <div class="d-flex justify-content-end mb-5">
+            <button class="btn btn-success btn-lg px-5" @onclick="SaveAllData" disabled="@isSaving">
+                @if (isSaving)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                else
+                {
+                    <i class="fa-solid fa-save me-2"></i>
+                }
+                Tüm Deðiþiklikleri Kaydet
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Tenant> tenants;
+    private List<Page> sitePages = new();
+    private int selectedTenantId = 0;
+    private string activeTab = "announcements";
+    private SiteContentData siteData = new();
+    private bool isSaving = false;
+
+    private bool showAnnouncementForm = false;
+    private bool showNewsForm = false;
+
+    private AnnouncementItem tempAnnouncement = new();
+    private NewsItem tempNews = new();
+    private int? editingAnnouncementIndex = null;
+    private int? editingNewsIndex = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        tenants = await context.Tenants.IgnoreQueryFilters().ToListAsync();
+    }
+
+    private async Task OnTenantChanged()
+    {
+        if (selectedTenantId > 0)
+        {
+            await LoadSiteData();
+        }
+        else
+        {
+            siteData = new();
+            sitePages = new();
+        }
+    }
+
+    private async Task LoadSiteData()
+    {
+        using var context = DbFactory.CreateDbContext();
+        
+        sitePages = await context.Pages.IgnoreQueryFilters().AsNoTracking()
+            .Where(p => p.TenantId == selectedTenantId && p.IsPublished)
+            .OrderBy(p => p.Order)
+            .ToListAsync();
+
+        var contentDataPage = await context.Pages.IgnoreQueryFilters().AsNoTracking()
+            .FirstOrDefaultAsync(p => p.TenantId == selectedTenantId && p.Slug == "_site_content_data");
+
+        if (contentDataPage != null && !string.IsNullOrWhiteSpace(contentDataPage.ContentJson))
+        {
+            try
+            {
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                siteData = JsonSerializer.Deserialize<SiteContentData>(contentDataPage.ContentJson, options) ?? new SiteContentData();
+            }
+            catch
+            {
+                siteData = new SiteContentData();
+            }
+        }
+        else
+        {
+            siteData = new SiteContentData();
+            foreach (var pg in sitePages)
+            {
+                if (!string.IsNullOrWhiteSpace(pg.ContentJson))
+                {
+                    try
+                    {
+                        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                        var pageData = JsonSerializer.Deserialize<PageContentData>(pg.ContentJson, options);
+                        if (pageData != null)
+                        {
+                            if (pageData.Announcements != null)
+                            {
+                                foreach (var ann in pageData.Announcements)
+                                {
+                                    if (!siteData.Announcements.Any(a => a.Title == ann.Title))
+                                    {
+                                        ann.SelectedPages ??= new List<string>();
+                                        if (!ann.SelectedPages.Contains(pg.Slug))
+                                            ann.SelectedPages.Add(pg.Slug);
+                                        siteData.Announcements.Add(ann);
+                                    }
+                                }
+                            }
+                            if (pageData.NewsItems != null)
+                            {
+                                foreach (var news in pageData.NewsItems)
+                                {
+                                    if (!siteData.NewsItems.Any(n => n.Title == news.Title))
+                                    {
+                                        news.SelectedPages ??= new List<string>();
+                                        if (!news.SelectedPages.Contains(pg.Slug))
+                                            news.SelectedPages.Add(pg.Slug);
+                                        siteData.NewsItems.Add(news);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
+    }
+
+    private async Task SaveAllData()
+    {
+        isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            using var context = DbFactory.CreateDbContext();
+
+            var contentDataPage = await context.Pages.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(p => p.TenantId == selectedTenantId && p.Slug == "_site_content_data");
+
+            var jsonContent = JsonSerializer.Serialize(siteData);
+
+            if (contentDataPage == null)
+            {
+                contentDataPage = new Page
+                {
+                    TenantId = selectedTenantId,
+                    Title = "_Site Content Data",
+                    Slug = "_site_content_data",
+                    IsPublished = false,
+                    ContentJson = jsonContent
+                };
+                context.Pages.Add(contentDataPage);
+            }
+            else
+            {
+                contentDataPage.ContentJson = jsonContent;
+            }
+
+            await context.SaveChangesAsync();
+            await Task.Delay(500);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Kayýt hatasý: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleAnnouncementPage(string pageSlug, bool isChecked)
+    {
+        tempAnnouncement.SelectedPages ??= new List<string>();
+        if (isChecked && !tempAnnouncement.SelectedPages.Contains(pageSlug))
+            tempAnnouncement.SelectedPages.Add(pageSlug);
+        else if (!isChecked)
+            tempAnnouncement.SelectedPages.Remove(pageSlug);
+    }
+
+    private void AddAnnouncement()
+    {
+        if (!string.IsNullOrWhiteSpace(tempAnnouncement.Title))
+        {
+            siteData.Announcements.Add(new AnnouncementItem
+            {
+                Title = tempAnnouncement.Title,
+                Content = tempAnnouncement.Content,
+                ImageUrl = tempAnnouncement.ImageUrl,
+                LinkUrl = tempAnnouncement.LinkUrl,
+                SelectedPages = tempAnnouncement.SelectedPages?.ToList() ?? new List<string>()
+            });
+            tempAnnouncement = new();
+            showAnnouncementForm = false;
+        }
+    }
+
+    private void EditAnnouncement(int index)
+    {
+        editingAnnouncementIndex = index;
+        var item = siteData.Announcements[index];
+        tempAnnouncement = new AnnouncementItem
+        {
+            Title = item.Title,
+            Content = item.Content,
+            ImageUrl = item.ImageUrl,
+            LinkUrl = item.LinkUrl,
+            SelectedPages = item.SelectedPages?.ToList() ?? new List<string>()
+        };
+        showAnnouncementForm = true;
+    }
+
+    private void SaveAnnouncementEdit()
+    {
+        if (editingAnnouncementIndex.HasValue)
+        {
+            var item = siteData.Announcements[editingAnnouncementIndex.Value];
+            item.Title = tempAnnouncement.Title;
+            item.Content = tempAnnouncement.Content;
+            if (!string.IsNullOrEmpty(tempAnnouncement.ImageUrl))
+                item.ImageUrl = tempAnnouncement.ImageUrl;
+            item.LinkUrl = tempAnnouncement.LinkUrl;
+            item.SelectedPages = tempAnnouncement.SelectedPages?.ToList() ?? new List<string>();
+            
+            editingAnnouncementIndex = null;
+            tempAnnouncement = new();
+            showAnnouncementForm = false;
+        }
+    }
+
+    private void CancelAnnouncementEdit()
+    {
+        editingAnnouncementIndex = null;
+        tempAnnouncement = new();
+        showAnnouncementForm = false;
+    }
+
+    private void DeleteAnnouncement(int index)
+    {
+        siteData.Announcements.RemoveAt(index);
+    }
+
+    private void ToggleNewsPage(string pageSlug, bool isChecked)
+    {
+        tempNews.SelectedPages ??= new List<string>();
+        if (isChecked && !tempNews.SelectedPages.Contains(pageSlug))
+            tempNews.SelectedPages.Add(pageSlug);
+        else if (!isChecked)
+            tempNews.SelectedPages.Remove(pageSlug);
+    }
+
+    private void AddNews()
+    {
+        if (!string.IsNullOrWhiteSpace(tempNews.Title))
+        {
+            siteData.NewsItems.Add(new NewsItem
+            {
+                Title = tempNews.Title,
+                Summary = tempNews.Summary,
+                Content = tempNews.Content,
+                ImageUrl = tempNews.ImageUrl,
+                LinkUrl = tempNews.LinkUrl,
+                SelectedPages = tempNews.SelectedPages?.ToList() ?? new List<string>()
+            });
+            tempNews = new();
+            showNewsForm = false;
+        }
+    }
+
+    private void EditNews(int index)
+    {
+        editingNewsIndex = index;
+        var item = siteData.NewsItems[index];
+        tempNews = new NewsItem
+        {
+            Title = item.Title,
+            Summary = item.Summary,
+            Content = item.Content,
+            ImageUrl = item.ImageUrl,
+            LinkUrl = item.LinkUrl,
+            SelectedPages = item.SelectedPages?.ToList() ?? new List<string>()
+        };
+        showNewsForm = true;
+    }
+
+    private void SaveNewsEdit()
+    {
+        if (editingNewsIndex.HasValue)
+        {
+            var item = siteData.NewsItems[editingNewsIndex.Value];
+            item.Title = tempNews.Title;
+            item.Summary = tempNews.Summary;
+            item.Content = tempNews.Content;
+            if (!string.IsNullOrEmpty(tempNews.ImageUrl))
+                item.ImageUrl = tempNews.ImageUrl;
+            item.LinkUrl = tempNews.LinkUrl;
+            item.SelectedPages = tempNews.SelectedPages?.ToList() ?? new List<string>();
+            
+            editingNewsIndex = null;
+            tempNews = new();
+            showNewsForm = false;
+        }
+    }
+
+    private void CancelNewsEdit()
+    {
+        editingNewsIndex = null;
+        tempNews = new();
+        showNewsForm = false;
+    }
+
+    private void DeleteNews(int index)
+    {
+        siteData.NewsItems.RemoveAt(index);
+    }
+
+    private async Task UploadFile(InputFileChangeEventArgs e, string type)
+    {
+        try
+        {
+            var file = e.File;
+            var webRoot = WebEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var uploadPath = Path.Combine(webRoot, "uploads", type);
+
+            if (!Directory.Exists(uploadPath))
+                Directory.CreateDirectory(uploadPath);
+
+            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.Name)}";
+            var filePath = Path.Combine(uploadPath, fileName);
+
+            using (var fs = new FileStream(filePath, FileMode.Create))
+            {
+                await file.OpenReadStream(50 * 1024 * 1024).CopyToAsync(fs);
+            }
+
+            var fileUrl = $"/uploads/{type}/{fileName}";
+
+            if (type == "announcement")
+                tempAnnouncement.ImageUrl = fileUrl;
+            else if (type == "news")
+                tempNews.ImageUrl = fileUrl;
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Upload hatasý: {ex.Message}");
+        }
+    }
+
+    public class SiteContentData
+    {
+        public List<AnnouncementItem> Announcements { get; set; } = new();
+        public List<NewsItem> NewsItems { get; set; } = new();
+    }
+
+    public class PageContentData
+    {
+        public List<AnnouncementItem> Announcements { get; set; } = new();
+        public List<NewsItem> NewsItems { get; set; } = new();
+    }
+
+    public class AnnouncementItem
+    {
+        public string Title { get; set; } = "";
+        public string Content { get; set; } = "";
+        public string ImageUrl { get; set; } = "";
+        public string LinkUrl { get; set; } = "";
+        public List<string> SelectedPages { get; set; } = new();
+    }
+
+    public class NewsItem
+    {
+        public string Title { get; set; } = "";
+        public string Summary { get; set; } = "";
+        public string Content { get; set; } = "";
+        public string ImageUrl { get; set; } = "";
+        public string LinkUrl { get; set; } = "";
+        public List<string> SelectedPages { get; set; } = new();
+    }
+}

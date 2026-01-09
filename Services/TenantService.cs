@@ -1,6 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Data.SqlClient; // SQL bağlantısı için
+﻿using Microsoft.Data.SqlClient; // SQL bağlantısı için
 
 namespace CoreBuilder.Services
 {

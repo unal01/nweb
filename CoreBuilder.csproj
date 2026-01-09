@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <DefaultItemExcludes>$(DefaultItemExcludes);UploadedFiles\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,6 +14,37 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <!-- BU KISIM KR�T�K: wwwroot/uploads i�indeki de�i�ikliklerin projeyi resetlemesini engeller -->
+  <ItemGroup>
+    <Watch Remove="wwwroot/uploads/**" />
+    <Content Remove="wwwroot/uploads/**" />
+    <None Remove="wwwroot/uploads/**" />
+    <Compile Remove="wwwroot/uploads/**" />
+    <EmbeddedResource Remove="wwwroot/uploads/**" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="wwwroot\uploads\images\site-logo.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Components\Api\" />
+    <Folder Include="wwwroot\js\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="wwwroot\uploads\announcements\duyuru1.svg" />
+    <None Include="wwwroot\uploads\announcements\duyuru2.svg" />
+    <None Include="wwwroot\uploads\gallery\galeri1.svg" />
+    <None Include="wwwroot\uploads\gallery\galeri2.svg" />
+    <None Include="wwwroot\uploads\gallery\galeri3.svg" />
+    <None Include="wwwroot\uploads\gallery\galeri4.svg" />
+    <None Include="wwwroot\uploads\gallery\galeri5.svg" />
+    <None Include="wwwroot\uploads\gallery\galeri6.svg" />
+    <None Include="wwwroot\uploads\news\haber1.svg" />
+    <None Include="wwwroot\uploads\news\haber2.svg" />
+    <None Include="wwwroot\uploads\slider\slider1.svg" />
+    <None Include="wwwroot\uploads\slider\slider2.svg" />
+    <None Include="wwwroot\uploads\slider\slider3.svg" />
   </ItemGroup>
 
 </Project>

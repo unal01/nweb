@@ -1,4 +1,4 @@
-ï»¿@using CoreBuilder.Entities
+@using CoreBuilder.Entities
 
 <div class="card shadow border-0 overflow-hidden" style="font-family: '@(Theme?.FontFamily ?? "Inter")', sans-serif;">
     <div class="bg-light border-bottom px-3 py-2 d-flex align-items-center">
@@ -14,10 +14,10 @@
 
     @if (Theme != null)
     {
-        <div class="preview-content position-relative" style="min-height: 500px; font-size: @(Theme.BaseFontSize)px;">
+        <div class="preview-content position-relative" style="min-height: 600px; font-size: @(Theme.BaseFontSize)px; overflow-y: auto; max-height: 800px;">
 
-            <header class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom"
-                    style="background-color: @Theme.HeaderBgColor;">
+            <header class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom sticky-top"
+                    style="background-color: @Theme.HeaderBgColor; z-index: 100;">
 
                 <div class="fw-bold fs-5 d-flex align-items-center gap-2" style="color: @Theme.PrimaryColor;">
 
@@ -28,7 +28,7 @@
 
                     @if (Theme.ShowSiteName)
                     {
-                        <span>@(SiteName ?? "Site AdÄ±")</span>
+                        <span>@(SiteName ?? "Site Adý")</span>
                     }
 
                 </div>
@@ -37,8 +37,8 @@
                 {
                     <nav class="d-none d-md-block">
                         <a href="#" class="me-3 text-decoration-none fw-bold" style="color: @Theme.MenuTextColor;">Ana Sayfa</a>
-                        <a href="#" class="me-3 text-decoration-none" style="color: @Theme.MenuTextColor;">HakkÄ±mÄ±zda</a>
-                        <a href="#" class="text-decoration-none" style="color: @Theme.MenuTextColor;">Ä°letiÅŸim</a>
+                        <a href="#" class="me-3 text-decoration-none" style="color: @Theme.MenuTextColor;">Hakkýmýzda</a>
+                        <a href="#" class="text-decoration-none" style="color: @Theme.MenuTextColor;">Ýletiþim</a>
                     </nav>
                 }
             </header>
@@ -48,45 +48,45 @@
                 <div class="position-absolute top-0 start-0 bottom-0 border-end bg-white p-3 pt-5"
                      style="width: 150px; z-index: 10; margin-top: 65px;">
                     <a href="#" class="d-block mb-2 text-decoration-none fw-bold" style="color: @Theme.PrimaryColor;">Ana Sayfa</a>
-                    <a href="#" class="d-block mb-2 text-decoration-none" style="color: @Theme.SecondaryColor;">HakkÄ±mÄ±zda</a>
-                    <a href="#" class="d-block mb-2 text-decoration-none" style="color: @Theme.SecondaryColor;">Ä°letiÅŸim</a>
+                    <a href="#" class="d-block mb-2 text-decoration-none" style="color: @Theme.SecondaryColor;">Hakkýmýzda</a>
+                    <a href="#" class="d-block mb-2 text-decoration-none" style="color: @Theme.SecondaryColor;">Ýletiþim</a>
                 </div>
             }
 
-            <div class="p-5 text-center bg-light">
-                <h2 class="fw-bold mb-3" style="color: @Theme.PrimaryColor;">HoÅŸ Geldiniz!</h2>
-                <p class="text-muted mb-4" style="color: @Theme.SecondaryColor;">
-                    Bu bir Ã¶nizleme alanÄ±dÄ±r. SeÃ§tiÄŸiniz renkler, logo ve fontlar anÄ±nda buraya yansÄ±r.
-                </p>
-                <button class="btn text-white px-4 py-2 rounded-pill" style="background-color: @Theme.PrimaryColor; border: none;">
-                    DetaylÄ± Bilgi
-                </button>
-                <button class="btn bg-white border px-4 py-2 rounded-pill ms-2" style="color: @Theme.SecondaryColor; border-color: @Theme.SecondaryColor !important;">
-                    Ä°letiÅŸim
-                </button>
+            <!-- Sayfa Baþlýðý -->
+            <div class="p-4 bg-light border-bottom" style="background: linear-gradient(135deg, @Theme.PrimaryColor 0%, @Theme.SecondaryColor 100%); color: white;">
+                <div class="@(Theme.MenuType == "Dikey" ? "ps-5 ms-5" : "")">
+                    <h1 class="mb-2" style="font-size: 2rem; color: white;">@(PageTitle ?? "Sayfa Baþlýðý")</h1>
+                    <p class="text-white-50">@(string.IsNullOrEmpty(PageTitle) ? "Sayfa baþlýðý buraya görünecek" : "")</p>
+                </div>
             </div>
 
-            <div class="container py-4 @(Theme.MenuType == "Dikey" ? "ps-5 ms-5" : "")">
-                <div class="row g-3">
-                    <div class="col-6">
-                        <div class="p-3 border rounded">
-                            <h6 style="color: @Theme.PrimaryColor;">Duyuru</h6>
-                            <small class="text-muted">Ä°Ã§erik buraya gelecek.</small>
-                        </div>
+            <!-- Sayfa Ýçeriði -->
+            <div class="p-4 @(Theme.MenuType == "Dikey" ? "ps-5 ms-5" : "")">
+                @if (!string.IsNullOrEmpty(PageContent))
+                {
+                    <div style="line-height: 1.6; color: #333;">
+                        @((MarkupString)PageContent)
                     </div>
-                    <div class="col-6">
-                        <div class="p-3 border rounded">
-                            <h6 style="color: @Theme.PrimaryColor;">Haber</h6>
-                            <small class="text-muted">Ä°Ã§erik buraya gelecek.</small>
-                        </div>
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        <i class="fa-solid fa-info-circle me-2"></i>
+                        Sayfa içeriði burada gösterilecek. Saðdaki editörde içerik yazýn.
                     </div>
-                </div>
+                }
+            </div>
+
+            <!-- Footer -->
+            <div class="border-top p-4 bg-light text-center text-muted small">
+                <p class="mb-0">© 2024 @(SiteName ?? "Site Adý"). Tüm haklarý saklýdýr.</p>
             </div>
         </div>
     }
     else
     {
-        <div class="p-5 text-center text-muted">Tema ayarlarÄ± yÃ¼kleniyor...</div>
+        <div class="p-5 text-center text-muted">Tema ayarlarý yükleniyor...</div>
     }
 </div>
 
@@ -97,7 +97,12 @@
     [Parameter]
     public string? Domain { get; set; }
 
-    // YENÄ° PARAMETRE: Site AdÄ±
     [Parameter]
     public string? SiteName { get; set; }
+
+    [Parameter]
+    public string? PageTitle { get; set; }
+
+    [Parameter]
+    public string? PageContent { get; set; }
 }

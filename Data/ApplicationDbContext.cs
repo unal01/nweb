@@ -1,11 +1,10 @@
-ï»¿using Microsoft.EntityFrameworkCore;
 using CoreBuilder.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace CoreBuilder.Data
 {
     public class ApplicationDbContext : DbContext
     {
-        // Context instance'Ä±ndaki tenant id; bileÅŸen/servis tarafÄ±ndan atanacak
         public int? CurrentTenantId { get; set; }
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
@@ -14,6 +13,8 @@ namespace CoreBuilder.Data
         }
 
         public DbSet<Tenant> Tenants { get; set; }
+        // Eklediðin satýr doðru:
+        public DbSet<StudentRegistration> StudentRegistrations { get; set; }
         public DbSet<ThemeSettings> ThemeSettings { get; set; }
         public DbSet<Page> Pages { get; set; }
         public DbSet<ContactInfo> ContactInfos { get; set; }
@@ -22,20 +23,25 @@ namespace CoreBuilder.Data
         {
             base.OnModelCreating(builder);
 
-            // Global query filter: context instance'Ä±ndaki CurrentTenantId kullanÄ±lÄ±r.
+            // --- GLOBAL QUERY FILTERS (FÝLTRELER) ---
+
             builder.Entity<Page>().HasQueryFilter(p =>
-                !EF.Property<int?>(this, nameof(CurrentTenantId)).HasValue
-                || p.TenantId == EF.Property<int?>(this, nameof(CurrentTenantId)).Value);
+                CurrentTenantId == null || p.TenantId == CurrentTenantId.Value);
 
             builder.Entity<ThemeSettings>().HasQueryFilter(t =>
-                !EF.Property<int?>(this, nameof(CurrentTenantId)).HasValue
-                || t.TenantId == EF.Property<int?>(this, nameof(CurrentTenantId)).Value);
+                !CurrentTenantId.HasValue || t.TenantId == CurrentTenantId);
 
             builder.Entity<ContactInfo>().HasQueryFilter(c =>
-                !EF.Property<int?>(this, nameof(CurrentTenantId)).HasValue
-                || c.TenantId == EF.Property<int?>(this, nameof(CurrentTenantId)).Value);
+                CurrentTenantId == null || c.TenantId == CurrentTenantId.Value);
 
-            // --- Ä°liÅŸki ayarlarÄ± ---
+            // !!! BU KISMI EKLEMEN ÇOK ÖNEMLÝ !!!
+            // Bu satýr sayesinde her site sadece kendi öðrencisini görür.
+            builder.Entity<StudentRegistration>().HasQueryFilter(s =>
+                CurrentTenantId == null || s.TenantId == CurrentTenantId.Value);
+
+
+            // --- ÝLÝÞKÝ AYARLARI ---
+
             builder.Entity<Tenant>()
                 .HasOne(t => t.ThemeSettings)
                 .WithOne()
@@ -52,6 +58,13 @@ namespace CoreBuilder.Data
                 .HasMany(t => t.Pages)
                 .WithOne(p => p.Tenant)
                 .HasForeignKey(p => p.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Öðrenci kaydý silme ayarý (Site silinirse öðrencileri de silinsin)
+            builder.Entity<StudentRegistration>()
+                .HasOne<Tenant>() // Tenant ile iliþkisi var
+                .WithMany()       // Tenant tarafýnda bir liste tutulmuyor olabilir
+                .HasForeignKey(s => s.TenantId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }
