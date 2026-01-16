@@ -33,7 +33,7 @@
                 <i class="fa-solid fa-arrow-left me-2"></i>Geri
             </button>
             <button class="btn btn-primary shadow-sm px-4" @onclick="HandleSubmit">
-                <i class="fa-solid fa-save me-2"></i>Kaydet &amp; Yayınla
+                <i class="fa-solid fa-save me-2"></i>Kaydet & Yayınla
             </button>
         </div>
     </div>
@@ -133,7 +133,102 @@
                     {
                         <div class="alert alert-primary shadow-sm mb-4">
                             <i class="fa-solid fa-info-circle me-2"></i>
-                            <strong>İletişim Modu:</strong> Sadece doldurduğunuz alanlar sitede yayınlanacaktır.
+                            <strong>İletişim Modu:</strong> Aşağıdaki bilgileri doldurduğunuzda web sitesinde otomatik olarak iletişim kartları ve "Bize Yazın" formu oluşacaktır.
+                        </div>
+
+                        <div class="card shadow-sm border-0 mb-4 border-top border-4 border-primary">
+                            <div class="card-header bg-white fw-bold">
+                                <i class="fa-solid fa-address-book me-2"></i>İletişim ve Adres Bilgileri
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-bold small">Açık Adres</label>
+                                        <InputText @bind-Value="pageData.Contact.AddressText" class="form-control" placeholder="Mahalle, Cadde, Sokak, No..." />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">İlçe</label>
+                                        <InputText @bind-Value="pageData.Contact.District" class="form-control" placeholder="Merkez" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">İl</label>
+                                        <InputText @bind-Value="pageData.Contact.City" class="form-control" placeholder="Bartın" />
+                                    </div>
+
+                                    <div class="col-12"><hr class="text-muted" /></div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">1. Telefon Etiketi</label>
+                                        <InputText @bind-Value="pageData.Contact.PhoneLabel1" class="form-control" placeholder="Örn: Santral, Sabit Hat" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">1. Telefon Numarası</label>
+                                        <InputText @bind-Value="pageData.Contact.Phone1" class="form-control" placeholder="0378 227 00 00" />
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">2. Telefon Etiketi (Opsiyonel)</label>
+                                        <InputText @bind-Value="pageData.Contact.PhoneLabel2" class="form-control" placeholder="Örn: Cep, WhatsApp Hattı" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">2. Telefon Numarası</label>
+                                        <InputText @bind-Value="pageData.Contact.Phone2" class="form-control" placeholder="05XX XXX XX XX" />
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">E-Posta Adresi</label>
+                                        <InputText @bind-Value="pageData.Contact.Email1" class="form-control" placeholder="info@ornek.com" />
+                                    </div>
+
+                                    <div class="col-12"><hr class="text-muted" /></div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">Çalışma Günleri</label>
+                                        <InputText @bind-Value="pageData.Contact.WorkingDays" class="form-control" placeholder="Pazartesi - Cumartesi" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold small">Çalışma Saatleri</label>
+                                        <InputText @bind-Value="pageData.Contact.WorkingHours" class="form-control" placeholder="08:30 - 19:00" />
+                                    </div>
+
+                                    <div class="col-12"><hr class="text-muted" /></div>
+
+                                    <div class="col-12"><label class="form-label fw-bold small text-primary"><i class="fa-solid fa-share-nodes me-1"></i>Sosyal Medya & Linkler</label></div>
+
+                                    <div class="col-md-6">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-success text-white"><i class="fa-brands fa-whatsapp"></i></span>
+                                            <InputText @bind-Value="pageData.Contact.Whatsapp" class="form-control" placeholder="https://wa.me/905xxxxxxxxx" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-danger text-white"><i class="fa-brands fa-instagram"></i></span>
+                                            <InputText @bind-Value="pageData.Contact.Instagram" class="form-control" placeholder="https://instagram.com/..." />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-primary text-white"><i class="fa-brands fa-facebook"></i></span>
+                                            <InputText @bind-Value="pageData.Contact.Facebook" class="form-control" placeholder="https://facebook.com/..." />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-dark text-white"><i class="fa-brands fa-x-twitter"></i></span>
+                                            <InputText @bind-Value="pageData.Contact.Twitter" class="form-control" placeholder="https://twitter.com/..." />
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12"><hr class="text-muted" /></div>
+
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-bold small">Google Harita Kodu (Embed/Iframe)</label>
+                                        <InputTextArea @bind-Value="pageData.Contact.MapEmbedCode" class="form-control font-monospace small" rows="4" placeholder="<iframe src='https://www.google.com/maps/embed...' ...></iframe>" />
+                                        <div class="form-text small text-muted">Google Maps'te yerinizi bulun, <strong>Paylaş -> Harita Yerleştir</strong> diyerek verilen HTML kodunu buraya yapıştırın.</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     }
                     else
@@ -219,7 +314,7 @@
                                                 </div>
                                                 <div>
                                                     <button type="button" class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditSliderItem(index)" title="Düzenle"><i class="fa-solid fa-pen"></i></button>
-                                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => pageData.Sliders.RemoveAt(index)">&times;</button>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => pageData.Sliders.RemoveAt(index)">×</button>
                                                 </div>
                                             </div>
                                         }
@@ -276,7 +371,7 @@
                                                         </div>
                                                         <div>
                                                             <button type="button" class="btn btn-sm btn-outline-primary me-1 p-0 px-1" @onclick="() => EditNewsItem(index)"><i class="fa-solid fa-pen"></i></button>
-                                                            <button class="btn btn-sm btn-danger p-0 px-1" @onclick="() => pageData.NewsItems.RemoveAt(index)">&times;</button>
+                                                            <button class="btn btn-sm btn-danger p-0 px-1" @onclick="() => pageData.NewsItems.RemoveAt(index)">×</button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -329,7 +424,7 @@
                                                 </div>
                                                 <div>
                                                     <button type="button" class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditAnnouncementItem(index)"><i class="fa-solid fa-pen"></i></button>
-                                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => pageData.Announcements.RemoveAt(index)">&times;</button>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => pageData.Announcements.RemoveAt(index)">×</button>
                                                 </div>
                                             </div>
                                         }
@@ -343,7 +438,6 @@
                             <div class="card shadow-sm border-0 mb-4 border-start border-4 border-success">
                                 <div class="card-header bg-white"><h6 class="text-success fw-bold mb-0">Medya Galeri</h6></div>
                                 <div class="card-body bg-light">
-                                    <!-- Ekleme/Düzenleme Formu -->
                                     <div class="mb-4 p-3 bg-white border rounded">
                                         <h6 class="fw-bold small text-muted mb-3">
                                             <i class="fa-solid @(editingGalleryIndex.HasValue ? "fa-pen" : "fa-plus-circle") me-2"></i>
@@ -377,7 +471,6 @@
                                             </div>
                                         </div>
 
-                                        <!-- Sayfa Seçimi (Checkbox) -->
                                         <div class="mb-3 p-3 bg-light border rounded">
                                             <label class="small fw-bold text-muted mb-2 d-block">
                                                 <i class="fa-solid fa-file-lines me-1"></i> Hangi Sayfalarda Gösterilsin?
@@ -424,7 +517,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- Toplu Yükleme -->
                                     <div class="mb-3">
                                         <label class="small fw-bold text-muted">Toplu Yükleme (Birden Fazla Dosya Seçin)</label>
                                         <div class="input-group input-group-sm">
@@ -436,7 +528,6 @@
                                         <small class="text-muted">Not: Toplu yüklenen öğeler varsayılan ayarlarla eklenir, sonra düzenleyebilirsiniz.</small>
                                     </div>
 
-                                    <!-- Galeri Listesi -->
                                     <div class="row g-3">
                                         @for (int i = 0; i < pageData.GalleryItems.Count; i++)
                                         {
@@ -511,7 +602,6 @@
     private bool isLoading = true;
     private int menuSelection = 0;
 
-    // Yükleme durumu için değişkenler
     private bool isUploading = false;
     private string uploadStatus = "";
 
@@ -632,13 +722,9 @@
 
     private async Task UploadFiles(InputFileChangeEventArgs e, string type)
     {
-        // 1. Durumu güncelle ve UI'ı yenile (Kullanıcı "Yükleniyor" görsün)
         isUploading = true;
         uploadStatus = "Yükleniyor...";
         await InvokeAsync(StateHasChanged);
-
-        // 2. KRİTİK NOKTA: Ana iş parçacığını serbest bırakmak için kısa bir gecikme.
-        // Bu, SignalR bağlantısının "kopmasını" (Rejoining/Disconnected) engeller.
         await Task.Delay(1);
 
         try
@@ -651,7 +737,7 @@
                 Directory.CreateDirectory(uploadPath);
 
             var maxFiles = (type == "gallery" || type == "gallery_single") ? 20 : 1;
-            long maxFileSize = 100 * 1024 * 1024; // 100 MB Limit
+            long maxFileSize = 100 * 1024 * 1024;
 
             IReadOnlyList<IBrowserFile> files;
             try
@@ -666,31 +752,15 @@
 
             foreach (var file in files)
             {
-                // Dosya boyutu kontrolü
-                if (file.Size > maxFileSize)
-                {
-                    Console.WriteLine($"Dosya çok büyük: {file.Name} (Max 100MB)");
-                    continue;
-                }
+                if (file.Size > maxFileSize) continue;
 
                 var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.Name)}";
                 var filePath = Path.Combine(uploadPath, fileName);
 
-                try
+                using (var stream = file.OpenReadStream(maxAllowedSize: maxFileSize))
+                using (var fs = new FileStream(filePath, FileMode.Create))
                 {
-                    // Dosyayı Diske Yaz (RAM'i şişirmeyen yöntem)
-                    using (var stream = file.OpenReadStream(maxAllowedSize: maxFileSize))
-                    {
-                        using (var fs = new FileStream(filePath, FileMode.Create))
-                        {
-                            await stream.CopyToAsync(fs);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Dosya yazma hatası: {ex.Message}");
-                    continue;
+                    await stream.CopyToAsync(fs);
                 }
 
                 var fileUrl = $"/uploads/{actualType}/{fileName}";
@@ -700,33 +770,18 @@
                 else if (type == "announcements") tempAnnouncement.ImageUrl = fileUrl;
                 else if (type == "gallery_single") tempGallery.ImageUrl = fileUrl;
                 else if (type == "gallery") pageData.GalleryItems.Add(new GalleryItem { ImageUrl = fileUrl });
-
-                uploadStatus = "✔ Başarıyla yüklendi!";
-                await InvokeAsync(StateHasChanged);
             }
+            uploadStatus = "✔ Başarıyla yüklendi!";
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Upload hatası: {ex}");
-        }
-        finally
-        {
-            isUploading = false;
-            await InvokeAsync(StateHasChanged);
-        }
+        catch (Exception ex) { Console.WriteLine($"Upload hatası: {ex}"); }
+        finally { isUploading = false; await InvokeAsync(StateHasChanged); }
     }
 
-    // Slider işlemleri
     private void AddSliderItem()
     {
         if (!string.IsNullOrEmpty(tempSlider.ImageUrl))
         {
-            pageData.Sliders.Add(new SliderItem
-            {
-                ImageUrl = tempSlider.ImageUrl,
-                Title = tempSlider.Title,
-                LinkUrl = tempSlider.LinkUrl
-            });
+            pageData.Sliders.Add(new SliderItem { ImageUrl = tempSlider.ImageUrl, Title = tempSlider.Title, LinkUrl = tempSlider.LinkUrl });
             tempSlider = new();
         }
     }
@@ -735,12 +790,7 @@
     {
         editingSliderIndex = index;
         var item = pageData.Sliders[index];
-        tempSlider = new SliderItem
-        {
-            ImageUrl = item.ImageUrl,
-            Title = item.Title,
-            LinkUrl = item.LinkUrl
-        };
+        tempSlider = new SliderItem { ImageUrl = item.ImageUrl, Title = item.Title, LinkUrl = item.LinkUrl };
     }
 
     private void SaveSliderEdit()
@@ -756,25 +806,13 @@
         }
     }
 
-    private void CancelSliderEdit()
-    {
-        editingSliderIndex = null;
-        tempSlider = new();
-    }
+    private void CancelSliderEdit() { editingSliderIndex = null; tempSlider = new(); }
 
-    // Haber işlemleri
     private void AddNewsItem()
     {
         if (!string.IsNullOrEmpty(tempNews.Title))
         {
-            pageData.NewsItems.Add(new NewsItem
-            {
-                Title = tempNews.Title,
-                Summary = tempNews.Summary,
-                ImageUrl = tempNews.ImageUrl,
-                LinkUrl = tempNews.LinkUrl,
-                Content = tempNews.Content
-            });
+            pageData.NewsItems.Add(new NewsItem { Title = tempNews.Title, Summary = tempNews.Summary, ImageUrl = tempNews.ImageUrl, LinkUrl = tempNews.LinkUrl, Content = tempNews.Content });
             tempNews = new();
         }
     }
@@ -783,14 +821,7 @@
     {
         editingNewsIndex = index;
         var item = pageData.NewsItems[index];
-        tempNews = new NewsItem
-        {
-            Title = item.Title,
-            Summary = item.Summary,
-            ImageUrl = item.ImageUrl,
-            LinkUrl = item.LinkUrl,
-            Content = item.Content
-        };
+        tempNews = new NewsItem { Title = item.Title, Summary = item.Summary, ImageUrl = item.ImageUrl, LinkUrl = item.LinkUrl, Content = item.Content };
     }
 
     private void SaveNewsEdit()
@@ -808,24 +839,13 @@
         }
     }
 
-    private void CancelNewsEdit()
-    {
-        editingNewsIndex = null;
-        tempNews = new();
-    }
+    private void CancelNewsEdit() { editingNewsIndex = null; tempNews = new(); }
 
-    // Duyuru işlemleri
     private void AddAnnouncementItem()
     {
         if (!string.IsNullOrEmpty(tempAnnouncement.Title))
         {
-            pageData.Announcements.Add(new AnnouncementItem
-            {
-                Title = tempAnnouncement.Title,
-                ImageUrl = tempAnnouncement.ImageUrl,
-                LinkUrl = tempAnnouncement.LinkUrl,
-                Content = tempAnnouncement.Content
-            });
+            pageData.Announcements.Add(new AnnouncementItem { Title = tempAnnouncement.Title, ImageUrl = tempAnnouncement.ImageUrl, LinkUrl = tempAnnouncement.LinkUrl, Content = tempAnnouncement.Content });
             tempAnnouncement = new();
         }
     }
@@ -834,13 +854,7 @@
     {
         editingAnnouncementIndex = index;
         var item = pageData.Announcements[index];
-        tempAnnouncement = new AnnouncementItem
-        {
-            Title = item.Title,
-            ImageUrl = item.ImageUrl,
-            LinkUrl = item.LinkUrl,
-            Content = item.Content
-        };
+        tempAnnouncement = new AnnouncementItem { Title = item.Title, ImageUrl = item.ImageUrl, LinkUrl = item.LinkUrl, Content = item.Content };
     }
 
     private void SaveAnnouncementEdit()
@@ -857,24 +871,13 @@
         }
     }
 
-    private void CancelAnnouncementEdit()
-    {
-        editingAnnouncementIndex = null;
-        tempAnnouncement = new();
-    }
+    private void CancelAnnouncementEdit() { editingAnnouncementIndex = null; tempAnnouncement = new(); }
 
-    // Galeri işlemleri
     private void AddGalleryItem()
     {
         if (!string.IsNullOrEmpty(tempGallery.ImageUrl))
         {
-            pageData.GalleryItems.Add(new GalleryItem
-            {
-                ImageUrl = tempGallery.ImageUrl,
-                Title = tempGallery.Title,
-                Description = tempGallery.Description,
-                SelectedPages = tempGallery.SelectedPages?.ToList() ?? new List<string>()
-            });
+            pageData.GalleryItems.Add(new GalleryItem { ImageUrl = tempGallery.ImageUrl, Title = tempGallery.Title, Description = tempGallery.Description, SelectedPages = tempGallery.SelectedPages?.ToList() ?? new List<string>() });
             tempGallery = new();
         }
     }
@@ -883,13 +886,7 @@
     {
         editingGalleryIndex = index;
         var item = pageData.GalleryItems[index];
-        tempGallery = new GalleryItem
-        {
-            ImageUrl = item.ImageUrl,
-            Title = item.Title,
-            Description = item.Description,
-            SelectedPages = item.SelectedPages?.ToList() ?? new List<string>()
-        };
+        tempGallery = new GalleryItem { ImageUrl = item.ImageUrl, Title = item.Title, Description = item.Description, SelectedPages = item.SelectedPages?.ToList() ?? new List<string>() };
     }
 
     private void SaveGalleryEdit()
@@ -906,19 +903,13 @@
         }
     }
 
-    private void CancelGalleryEdit()
-    {
-        editingGalleryIndex = null;
-        tempGallery = new();
-    }
+    private void CancelGalleryEdit() { editingGalleryIndex = null; tempGallery = new(); }
 
     private void ToggleGalleryPage(string pageSlug, bool isChecked)
     {
         tempGallery.SelectedPages ??= new List<string>();
-        if (isChecked && !tempGallery.SelectedPages.Contains(pageSlug))
-            tempGallery.SelectedPages.Add(pageSlug);
-        else if (!isChecked && tempGallery.SelectedPages.Contains(pageSlug))
-            tempGallery.SelectedPages.Remove(pageSlug);
+        if (isChecked && !tempGallery.SelectedPages.Contains(pageSlug)) tempGallery.SelectedPages.Add(pageSlug);
+        else if (!isChecked && tempGallery.SelectedPages.Contains(pageSlug)) tempGallery.SelectedPages.Remove(pageSlug);
     }
 
     private bool IsVideo(string url)
@@ -975,35 +966,8 @@
         public string Twitter { get; set; }
     }
 
-    public class SliderItem
-    {
-        public string ImageUrl { get; set; } = "";
-        public string Title { get; set; } = "";
-        public string LinkUrl { get; set; }
-    }
-
-    public class NewsItem
-    {
-        public string Title { get; set; }
-        public string Summary { get; set; }
-        public string ImageUrl { get; set; }
-        public string LinkUrl { get; set; }
-        public string Content { get; set; }
-    }
-
-    public class AnnouncementItem
-    {
-        public string Title { get; set; }
-        public string ImageUrl { get; set; }
-        public string LinkUrl { get; set; }
-        public string Content { get; set; }
-    }
-
-    public class GalleryItem
-    {
-        public string ImageUrl { get; set; }
-        public string Title { get; set; }
-        public string Description { get; set; }
-        public List<string> SelectedPages { get; set; } = new();
-    }
+    public class SliderItem { public string ImageUrl { get; set; } = ""; public string Title { get; set; } = ""; public string LinkUrl { get; set; } }
+    public class NewsItem { public string Title { get; set; } public string Summary { get; set; } public string ImageUrl { get; set; } public string LinkUrl { get; set; } public string Content { get; set; } }
+    public class AnnouncementItem { public string Title { get; set; } public string ImageUrl { get; set; } public string LinkUrl { get; set; } public string Content { get; set; } }
+    public class GalleryItem { public string ImageUrl { get; set; } public string Title { get; set; } public string Description { get; set; } public List<string> SelectedPages { get; set; } = new(); }
 }

@@ -5,6 +5,7 @@ namespace CoreBuilder.Data
 {
     public class ApplicationDbContext : DbContext
     {
+        // Context instance'ýndaki tenant id; bileþen/servis tarafýndan atanacak
         public int? CurrentTenantId { get; set; }
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
@@ -13,31 +14,36 @@ namespace CoreBuilder.Data
         }
 
         public DbSet<Tenant> Tenants { get; set; }
-        // Eklediðin satýr doðru:
         public DbSet<StudentRegistration> StudentRegistrations { get; set; }
         public DbSet<ThemeSettings> ThemeSettings { get; set; }
         public DbSet<Page> Pages { get; set; }
         public DbSet<ContactInfo> ContactInfos { get; set; }
+
+        // YENÝ EKLENEN: Ýletiþim Mesajlarý Tablosu
+        public DbSet<ContactMessage> ContactMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
             // --- GLOBAL QUERY FILTERS (FÝLTRELER) ---
+            // Bu filtreler sayesinde bir tenant (site) seçiliyken, yanlýþlýkla baþka sitenin verisi gelmez.
 
             builder.Entity<Page>().HasQueryFilter(p =>
-                CurrentTenantId == null || p.TenantId == CurrentTenantId.Value);
+                !CurrentTenantId.HasValue || p.TenantId == CurrentTenantId);
 
             builder.Entity<ThemeSettings>().HasQueryFilter(t =>
                 !CurrentTenantId.HasValue || t.TenantId == CurrentTenantId);
 
             builder.Entity<ContactInfo>().HasQueryFilter(c =>
-                CurrentTenantId == null || c.TenantId == CurrentTenantId.Value);
+                !CurrentTenantId.HasValue || c.TenantId == CurrentTenantId);
 
-            // !!! BU KISMI EKLEMEN ÇOK ÖNEMLÝ !!!
-            // Bu satýr sayesinde her site sadece kendi öðrencisini görür.
             builder.Entity<StudentRegistration>().HasQueryFilter(s =>
-                CurrentTenantId == null || s.TenantId == CurrentTenantId.Value);
+                !CurrentTenantId.HasValue || s.TenantId == CurrentTenantId);
+
+            // YENÝ EKLENEN: Mesajlar için güvenlik filtresi
+            builder.Entity<ContactMessage>().HasQueryFilter(m =>
+                !CurrentTenantId.HasValue || m.TenantId == CurrentTenantId);
 
 
             // --- ÝLÝÞKÝ AYARLARI ---
@@ -62,9 +68,16 @@ namespace CoreBuilder.Data
 
             // Öðrenci kaydý silme ayarý (Site silinirse öðrencileri de silinsin)
             builder.Entity<StudentRegistration>()
-                .HasOne<Tenant>() // Tenant ile iliþkisi var
-                .WithMany()       // Tenant tarafýnda bir liste tutulmuyor olabilir
+                .HasOne<Tenant>()
+                .WithMany()
                 .HasForeignKey(s => s.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // YENÝ EKLENEN: Mesaj silme ayarý (Site silinirse mesajlarý da silinsin)
+            builder.Entity<ContactMessage>()
+                .HasOne<Tenant>()
+                .WithMany()
+                .HasForeignKey(m => m.TenantId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

@@ -1,0 +1,160 @@
+﻿@page "/admin/mesajlar"
+@using CoreBuilder.Entities
+@using CoreBuilder.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary fw-bold"><i class="fa-solid fa-envelope me-2"></i>Gelen Mesajlar</h2>
+        <button class="btn btn-outline-primary" @onclick="LoadData">
+            <i class="fa-solid fa-rotate me-1"></i> Yenile
+        </button>
+    </div>
+
+    @if (messages == null)
+    {
+        <div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else if (!messages.Any())
+    {
+        <div class="alert alert-info text-center shadow-sm">
+            <i class="fa-solid fa-inbox fa-2x mb-3 text-muted"></i><br />
+            Henüz hiç mesajınız yok.
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light text-secondary small text-uppercase">
+                            <tr>
+                                <th class="ps-4">Durum</th>
+                                <th>Tarih</th>
+                                <th>Gönderen</th>
+                                <th>Konu</th>
+                                <th class="text-end pe-4">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var msg in messages)
+                            {
+                                <tr class="@(msg.IsRead ? "" : "fw-bold bg-light")" style="cursor: pointer;" @onclick="() => OpenMessage(msg)">
+                                    <td class="ps-4">
+                                        @if (msg.IsRead)
+                                        {
+                                            <span class="badge bg-light text-dark border"><i class="fa-regular fa-envelope-open me-1"></i>Okundu</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-primary"><i class="fa-solid fa-envelope me-1"></i>YENİ</span>
+                                        }
+                                    </td>
+                                    <td class="small text-muted">@msg.SentAt.ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>
+                                        <div>@msg.FullName</div>
+                                        <small class="text-muted">@msg.Email</small>
+                                    </td>
+                                    <td>@msg.Subject</td>
+                                    <td class="text-end pe-4" @onclick:stopPropagation="true">
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenMessage(msg)" title="Oku">
+                                            <i class="fa-solid fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteMessage(msg)" title="Sil">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (selectedMessage != null)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(2px);">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold text-primary"><i class="fa-regular fa-envelope me-2"></i>Mesaj Detayı</h5>
+                    <button type="button" class="btn-close" @onclick="CloseMessage"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="small text-muted fw-bold text-uppercase">Gönderen</label>
+                            <div class="fs-5">@selectedMessage.FullName</div>
+                            <div class="text-muted">@selectedMessage.Email</div>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <label class="small text-muted fw-bold text-uppercase">Tarih</label>
+                            <div>@selectedMessage.SentAt.ToString("f")</div>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="small text-muted fw-bold text-uppercase">Konu</label>
+                        <div class="fs-5 fw-bold text-dark">@selectedMessage.Subject</div>
+                    </div>
+                    <div class="p-4 bg-light rounded border">
+                        <div style="white-space: pre-wrap;">@selectedMessage.Message</div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <a href="mailto:@selectedMessage.Email" class="btn btn-primary">
+                        <i class="fa-solid fa-reply me-2"></i>Yanıtla
+                    </a>
+                    <button type="button" class="btn btn-secondary" @onclick="CloseMessage">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ContactMessage> messages;
+    private ContactMessage selectedMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        // En yeni mesaj en üstte
+        messages = await DbContext.ContactMessages
+            .OrderByDescending(m => m.SentAt)
+            .ToListAsync();
+    }
+
+    private async Task OpenMessage(ContactMessage msg)
+    {
+        selectedMessage = msg;
+        if (!msg.IsRead)
+        {
+            msg.IsRead = true;
+            await DbContext.SaveChangesAsync();
+        }
+    }
+
+    private void CloseMessage() => selectedMessage = null;
+
+    private async Task DeleteMessage(ContactMessage msg)
+    {
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Bu mesajı silmek istediğinize emin misiniz?");
+        if (confirmed)
+        {
+            DbContext.ContactMessages.Remove(msg);
+            await DbContext.SaveChangesAsync();
+            await LoadData();
+        }
+    }
+}

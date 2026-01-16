@@ -1,0 +1,136 @@
+﻿@page "/admin/on-kayitlar"
+@using CoreBuilder.Entities
+@using CoreBuilder.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary fw-bold"><i class="fa-solid fa-list-check me-2"></i>Ön Kayıt Listesi</h2>
+        <button class="btn btn-outline-primary" @onclick="LoadData">
+            <i class="fa-solid fa-rotate me-1"></i> Yenile
+        </button>
+    </div>
+
+    @if (registrations == null)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    }
+    else if (!registrations.Any())
+    {
+        <div class="alert alert-warning text-center">
+            Henüz hiç ön kayıt bulunmamaktadır.
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped align-middle mb-0">
+                        <thead class="bg-light text-dark">
+                            <tr>
+                                <th class="py-3 ps-4">Durum</th>
+                                <th class="py-3">Tarih</th>
+                                <th class="py-3">Ad Soyad</th>
+                                <th class="py-3">Telefon</th>
+                                <th class="py-3">Sınıf</th>
+                                <th class="py-3">Okul & Mesaj</th>
+                                <th class="py-3 text-end pe-4">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in registrations)
+                            {
+                                <tr class="@(item.IsProcessed ? "table-success" : "")">
+                                    <td class="ps-4">
+                                        @if (item.IsProcessed)
+                                        {
+                                            <span class="badge bg-success"><i class="fa-solid fa-check me-1"></i>Tamamlandı</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark"><i class="fa-solid fa-clock me-1"></i>Bekliyor</span>
+                                        }
+                                    </td>
+                                    <td>@item.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td class="fw-bold">@item.FullName</td>
+                                    <td>
+                                        <a href="tel:@item.Phone" class="text-decoration-none fw-bold text-dark">
+                                            <i class="fa-solid fa-phone me-1 text-muted"></i>@item.Phone
+                                        </a>
+                                    </td>
+                                    <td>@item.Grade</td>
+                                    <td style="max-width: 300px;">
+                                        @if (!string.IsNullOrEmpty(item.SchoolName))
+                                        {
+                                            <small class="d-block text-muted mb-1"><i class="fa-solid fa-school me-1"></i>@item.SchoolName</small>
+                                        }
+                                        <span class="text-truncate d-block" title="@item.Message">@item.Message</span>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        @if (!item.IsProcessed)
+                                        {
+                                            <button class="btn btn-sm btn-success me-2" @onclick="() => ToggleStatus(item)" title="Arandı / Tamamlandı olarak işaretle">
+                                                <i class="fa-solid fa-check"></i>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-outline-secondary me-2" @onclick="() => ToggleStatus(item)" title="Geri al">
+                                                <i class="fa-solid fa-undo"></i>
+                                            </button>
+                                        }
+
+                                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteRecord(item)" title="Kaydı Sil">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<StudentRegistration> registrations;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        // En yeni kayıt en üstte olacak şekilde getir
+        registrations = await DbContext.StudentRegistrations
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+    }
+
+    private async Task ToggleStatus(StudentRegistration item)
+    {
+        // Durumu tersine çevir (Bekliyorsa Tamamlandı, Tamamlandıysa Bekliyor yap)
+        item.IsProcessed = !item.IsProcessed;
+        await DbContext.SaveChangesAsync();
+    }
+
+    private async Task DeleteRecord(StudentRegistration item)
+    {
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"{item.FullName} isimli kaydı silmek istediğinize emin misiniz?");
+        if (confirmed)
+        {
+            DbContext.StudentRegistrations.Remove(item);
+            await DbContext.SaveChangesAsync();
+            await LoadData(); // Listeyi yenile
+        }
+    }
+}
